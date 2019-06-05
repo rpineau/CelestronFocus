@@ -17,12 +17,6 @@ CCelestronFocus::CCelestronFocus()
 
     m_nCurPos = 0;
     m_nTargetPos = 0;
-    m_nPosLimit = 0;
-    m_bPosLimitEnabled = 0;
-    m_nCurrentApperture = 0;
-	m_nLastPos = 0;
-    m_bReturntoLastPos = false;
-    
 
 #ifdef CTL_DEBUG
 #if defined(SB_WIN_BUILD)
@@ -69,7 +63,7 @@ int CCelestronFocus::Connect(const char *pszPort)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] CCelestronFocus::Connect Called %s\n", timestamp, pszPort);
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Called %s\n", timestamp, pszPort);
 	fflush(Logfile);
 #endif
 
@@ -86,7 +80,7 @@ int CCelestronFocus::Connect(const char *pszPort)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] CCelestronFocus::Connect connected to %s\n", timestamp, pszPort);
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] connected to %s\n", timestamp, pszPort);
 	fflush(Logfile);
 #endif
 	m_pSleeper->sleep(2000);
@@ -95,7 +89,7 @@ int CCelestronFocus::Connect(const char *pszPort)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] CCelestronFocus::Connect doing a goto 0\n", timestamp);
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] doing a goto 0\n", timestamp);
 	fflush(Logfile);
 #endif
 
@@ -103,13 +97,22 @@ int CCelestronFocus::Connect(const char *pszPort)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] CCelestronFocus::Connect setting apperture to %d\n", timestamp, m_nCurrentApperture);
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] getting firmware version\n", timestamp);
 	fflush(Logfile);
 #endif
 
 	// get version
 	nErr = getFirmwareVersion(m_sFirmwareVersion);
-    return nErr;
+
+#ifdef CTL_DEBUG
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] firmware version : %s\n", timestamp, m_sFirmwareVersion.c_str());
+	fflush(Logfile);
+#endif
+
+	return nErr;
 }
 
 void CCelestronFocus::Disconnect()
@@ -143,7 +146,7 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
-#if defined SKYPORTAL_DEBUG && SKYPORTAL_DEBUG >= 2
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -153,7 +156,10 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 		return nErr;
 	}
 	if(Resp.size()) {
-		ssFirmwareVersion << Resp[0] << "." <<Resp [1] << "." << ((Resp[2] << 8) + Resp[3]);
+		if(Resp.size() == 4)
+		   ssFirmwareVersion << Resp[0] << "." <<Resp [1] << "." << ((Resp[2] << 8) + Resp[3]);
+		else
+		   ssFirmwareVersion << Resp[0] << "." <<Resp [1] ;
 		m_sFirmwareVersion = ssFirmwareVersion.str();
 	}
 	else
@@ -173,15 +179,11 @@ int CCelestronFocus::gotoPosition(int nPos)
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
-
-    if (m_bPosLimitEnabled && nPos>m_nPosLimit)
-        return ERR_LIMITSEXCEEDED;
-
 #ifdef CTL_DEBUG
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] CCelestronFocus::gotoPosition goto position  : %d\n", timestamp, nPos);
+    fprintf(Logfile, "[%s] [CCelestronFocus::gotoPosition] goto position  : %d\n", timestamp, nPos);
     fflush(Logfile);
 #endif
 
@@ -214,7 +216,7 @@ int CCelestronFocus::moveRelativeToPosision(int nSteps)
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] CCelestronFocus::gotoPosition goto relative position  : %d\n", timestamp, nSteps);
+    fprintf(Logfile, "[%s] [CCelestronFocus::moveRelativeToPosision] goto relative position  : %d\n", timestamp, nSteps);
     fflush(Logfile);
 #endif
 
@@ -245,7 +247,7 @@ int CCelestronFocus::isMoving(bool &bMoving)
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
-#if defined SKYPORTAL_DEBUG && SKYPORTAL_DEBUG >= 2
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -259,6 +261,43 @@ int CCelestronFocus::isMoving(bool &bMoving)
 	}
 
 	return nErr;
+}
+
+
+int CCelestronFocus::abort(void)
+{
+	int nErr;
+	Buffer_t Cmd;
+	Buffer_t Resp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+
+#ifdef CTL_DEBUG
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::abort]\n", timestamp);
+	fflush(Logfile);
+#endif
+
+	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
+	Cmd[0] = SOM;
+	Cmd[MSG_LEN] = 6;
+	Cmd[SRC_DEV] = PC;
+	Cmd[DST_DEV] = FOC;
+	Cmd[CMD_ID] = MC_GOTO_FAST;
+	Cmd[5] = 0;
+	Cmd[6] = 0;
+	Cmd[7] = 0;
+	Cmd[8] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+
+	nErr = SendCommand(Cmd, Resp, false);
+	if(nErr)
+		return nErr;
+	return nErr;
+
 }
 
 #pragma mark command complete functions
@@ -309,7 +348,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
-#if defined SKYPORTAL_DEBUG && SKYPORTAL_DEBUG >= 2
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -345,11 +384,11 @@ int CCelestronFocus::getPosMaxLimit(int &nPos)
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
-#if defined SKYPORTAL_DEBUG && SKYPORTAL_DEBUG >= 2
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::isMoving] Error getting response : %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMaxLimit] Error getting response : %d\n", timestamp, nErr);
 		fflush(Logfile);
 #endif
 		return nErr;
@@ -357,6 +396,14 @@ int CCelestronFocus::getPosMaxLimit(int &nPos)
 	if(Resp.size()) {
 		nPos = (Resp[4] << 24) + (Resp[5] << 16) + (Resp[6] << 8) + Resp[7];
 	}
+
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMaxLimit] position limit : %d\n", timestamp, nPos);
+	fflush(Logfile);
+#endif
 
 	return nErr;
 }
@@ -381,11 +428,11 @@ int CCelestronFocus::getPosMinLimit(int &nPos)
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
-#if defined SKYPORTAL_DEBUG && SKYPORTAL_DEBUG >= 2
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::isMoving] Error getting response : %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMinLimit] Error getting response : %d\n", timestamp, nErr);
 		fflush(Logfile);
 #endif
 		return nErr;
@@ -393,6 +440,14 @@ int CCelestronFocus::getPosMinLimit(int &nPos)
 	if(Resp.size()) {
 		nPos = (Resp[0] << 24) + (Resp[1] << 16) + (Resp[2] << 8) + Resp[3];
 	}
+
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMinLimit] position limit : %d\n", timestamp, nPos);
+	fflush(Logfile);
+#endif
 
 	return nErr;
 }
@@ -416,7 +471,7 @@ int CCelestronFocus::SendCommand(const unsigned char *pszCmd, unsigned char *psz
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
 	hexdump(pszCmd, cHexMessage, pszCmd[1]+3, LOG_BUFFER_SIZE);
-	fprintf(Logfile, "[%s] [CSkyPortalWiFiController::SkyPortalWiFiSendCommand] Sending %s\n", timestamp, cHexMessage);
+	fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] Sending %s\n", timestamp, cHexMessage);
 	fflush(Logfile);
 #endif
 	nErr = m_pSerx->writeFile((void *)pszCmd, pszCmd[1]+3, ulBytesWrite);
@@ -441,7 +496,7 @@ int CCelestronFocus::SendCommand(const unsigned char *pszCmd, unsigned char *psz
 				timestamp = asctime(localtime(&ltime));
 				timestamp[strlen(timestamp) - 1] = 0;
 				hexdump(szResp, cHexMessage, szResp[1]+3, LOG_BUFFER_SIZE);
-				fprintf(Logfile, "[%s] [CSkyPortalWiFiController::SkyPortalWiFiSendCommand] response \"%s\"\n", timestamp, cHexMessage);
+				fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] response \"%s\"\n", timestamp, cHexMessage);
 				fflush(Logfile);
 			}
 #endif
@@ -458,7 +513,7 @@ int CCelestronFocus::SendCommand(const unsigned char *pszCmd, unsigned char *psz
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
 		hexdump(pszResult, cHexMessage, pszResult[1]+3, LOG_BUFFER_SIZE);
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::SkyPortalWiFiSendCommand] response copied to pszResult : \"%s\"\n", timestamp, cHexMessage);
+		fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] response copied to pszResult : \"%s\"\n", timestamp, cHexMessage);
 		fflush(Logfile);
 #endif
 	}
@@ -481,7 +536,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool b
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
 	hexdump(Cmd.data(), szHexMessage, Cmd[3]+1, LOG_BUFFER_SIZE);
-	fprintf(Logfile, "[%s] [CSkyPortalWiFiController::SkyPortalWiFiSendCommand] Sending %s\n", timestamp, szHexMessage);
+	fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] Sending %s\n", timestamp, szHexMessage);
 	fflush(Logfile);
 #endif
 	nErr = m_pSerx->writeFile((void *)Cmd.data(), Cmd[1]+3, ulBytesWrite);
@@ -505,7 +560,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool b
 				timestamp = asctime(localtime(&ltime));
 				timestamp[strlen(timestamp) - 1] = 0;
 				hexdump(Resp.data(), szHexMessage, Resp[3]+1, LOG_BUFFER_SIZE);
-				fprintf(Logfile, "[%s] [CSkyPortalWiFiController::SkyPortalWiFiSendCommand] response \"%s\"\n", timestamp, szHexMessage);
+				fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] response \"%s\"\n", timestamp, szHexMessage);
 				fflush(Logfile);
 			}
 #endif
@@ -520,7 +575,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool b
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
 		hexdump(Resp.data(), szHexMessage, Resp[3]+1, LOG_BUFFER_SIZE);
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::SkyPortalWiFiSendCommand] response copied to pszResult : \"%s\"\n", timestamp, szHexMessage);
+		fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] response copied to pszResult : \"%s\"\n", timestamp, szHexMessage);
 		fflush(Logfile);
 #endif
 	}
@@ -562,7 +617,7 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
 	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
-	fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] nLen = %d\n", timestamp, nLen);
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
 	fflush(Logfile);
 #endif
 
@@ -573,7 +628,7 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
 	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
-	fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
 	fflush(Logfile);
 #endif
 	if(nErr || ulBytesRead != (nLen+1)) {
@@ -582,8 +637,8 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
 		hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] error\n", timestamp);
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] got %s\n", timestamp, cHexMessage);
+		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] error\n", timestamp);
+		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] got %s\n", timestamp, cHexMessage);
 		fflush(Logfile);
 #endif
 		return ERR_CMDFAILED;
@@ -597,7 +652,7 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] Calculated checksume is %02X, message checksum is %02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+2));
+		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] Calculated checksume is %02X, message checksum is %02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+2));
 		fflush(Logfile);
 #endif
 	}
@@ -638,7 +693,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
 	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
-	fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] nLen = %d\n", timestamp, nLen);
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
 	fflush(Logfile);
 #endif
 
@@ -649,7 +704,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
 	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
-	fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
 	fflush(Logfile);
 #endif
 	if(nErr || ulBytesRead != (nLen+1)) {
@@ -658,8 +713,8 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
 		hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] error\n", timestamp);
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] got %s\n", timestamp, cHexMessage);
+		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] error\n", timestamp);
+		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] got %s\n", timestamp, cHexMessage);
 		fflush(Logfile);
 #endif
 		return ERR_CMDFAILED;
@@ -673,7 +728,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [CSkyPortalWiFiController::readResponse] Calculated checksume is %02X, message checksum is %02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+2));
+		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] Calculated checksume is %02X, message checksum is %02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+2));
 		fflush(Logfile);
 #endif
 	}

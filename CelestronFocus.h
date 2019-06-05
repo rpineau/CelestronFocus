@@ -103,6 +103,7 @@ public:
     int         gotoPosition(int nPos);
     int         moveRelativeToPosision(int nSteps);
 	int			isMoving(bool &bMoving);
+	int			abort(void);
 
     // command complete functions
     int         isGoToComplete(bool &bComplete);
@@ -136,12 +137,7 @@ protected:
 
     int             m_nCurPos;
     int             m_nTargetPos;
-    int             m_nPosLimit;
-    bool            m_bPosLimitEnabled;
-    int             m_nCurrentApperture;
-	int				m_nLastPos;
-    bool            m_bReturntoLastPos;
-    
+
 	std::string&    trim(std::string &str, const std::string &filter );
 	std::string&    ltrim(std::string &str, const std::string &filter);
 	std::string&    rtrim(std::string &str, const std::string &filter);

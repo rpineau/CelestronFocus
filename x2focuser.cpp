@@ -183,6 +183,8 @@ int	X2Focuser::execModalSettingsDialog(void)
     if (NULL == (dx = uiutil.X2DX()))
         return ERR_POINTER;
 
+	X2MutexLocker ml(GetMutex());
+
 	//Display the user interface
     if ((nErr = ui->exec(bPressedOK)))
         return nErr;
@@ -241,8 +243,15 @@ int	X2Focuser::focMaximumLimit(int& nMaxLimit)
 
 int	X2Focuser::focAbort()								
 {
-	return SB_OK;
-    // return ERR_COMMANDNOTSUPPORTED;
+	int nErr = SB_OK;
+
+	if(!m_bLinked)
+		return NOT_CONNECTED;
+
+	X2MutexLocker ml(GetMutex());
+	nErr = m_CelestronFocus.abort();
+
+	return nErr;
 }
 
 int	X2Focuser::startFocGoto(const int& nRelativeOffset)	
