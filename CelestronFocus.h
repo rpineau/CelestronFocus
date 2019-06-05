@@ -127,20 +127,25 @@ protected:
 
 	void    hexdump(const unsigned char* pszInputBuffer, unsigned char *pszOutputBuffer, int nInputBufferSize, int nOutpuBufferSize);
 
+	int		getPosLimits();
+	
+	std::string&    trim(std::string &str, const std::string &filter );
+	std::string&    ltrim(std::string &str, const std::string &filter);
+	std::string&    rtrim(std::string &str, const std::string &filter);
+
     SerXInterface   *m_pSerx;
 	SleeperInterface    *m_pSleeper;
 	TheSkyXFacadeForDriversInterface	*m_pTheSkyXForMounts;
 	
-    bool            m_bDebugLog;
-    bool            m_bIsConnected;
-	std::string     m_sFirmwareVersion;
+    bool		m_bDebugLog;
+    bool		m_bIsConnected;
+	std::string	m_sFirmwareVersion;
 
-    int             m_nCurPos;
-    int             m_nTargetPos;
+    int			m_nCurPos;
+    int			m_nTargetPos;
+	int			m_nMinLinit;
+	int			m_nMaxLinit;
 
-	std::string&    trim(std::string &str, const std::string &filter );
-	std::string&    ltrim(std::string &str, const std::string &filter);
-	std::string&    rtrim(std::string &str, const std::string &filter);
 
 
 #ifdef CTL_DEBUG

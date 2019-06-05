@@ -18,6 +18,9 @@ CCelestronFocus::CCelestronFocus()
     m_nCurPos = 0;
     m_nTargetPos = 0;
 
+	m_nMinLinit = -1;
+	m_nMaxLinit = -1;
+
 #ifdef CTL_DEBUG
 #if defined(SB_WIN_BUILD)
     m_sLogfilePath = getenv("HOMEDRIVE");
@@ -67,7 +70,7 @@ int CCelestronFocus::Connect(const char *pszPort)
 	fflush(Logfile);
 #endif
 
-	nErr = m_pSerx->open(pszPort, 9600, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1");
+	nErr = m_pSerx->open(pszPort, 19200, SerXInterface::B_NOPARITY, "-DTR_CONTROL 1");
     if( nErr == 0)
         m_bIsConnected = true;
     else
@@ -367,48 +370,33 @@ int CCelestronFocus::getPosition(int &nPosition)
 int CCelestronFocus::getPosMaxLimit(int &nPos)
 {
 	int nErr = CTL_OK;
-	Buffer_t Cmd;
-	Buffer_t Resp;
-	if(!m_bIsConnected)
-		return ERR_COMMNOLINK;
 
-	nPos = 0;
-	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
+	if(m_nMaxLinit <0)
+		nErr = getPosLimits();
 
-	Cmd[0] = SOM;
-	Cmd[MSG_LEN] = 3;
-	Cmd[SRC_DEV] = PC;
-	Cmd[DST_DEV] = FOC;
-	Cmd[CMD_ID] = MC_FOC_GET_LIMITS;
-	Cmd[5] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
-
-	nErr = SendCommand(Cmd, Resp, true);
-	if(nErr) {
-#if defined CTL_DEBUG && CTL_DEBUG >= 2
-		ltime = time(NULL);
-		timestamp = asctime(localtime(&ltime));
-		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMaxLimit] Error getting response : %d\n", timestamp, nErr);
-		fflush(Logfile);
-#endif
+	if(nErr)
 		return nErr;
-	}
-	if(Resp.size()) {
-		nPos = (Resp[4] << 24) + (Resp[5] << 16) + (Resp[6] << 8) + Resp[7];
-	}
 
-#if defined CTL_DEBUG && CTL_DEBUG >= 2
-	ltime = time(NULL);
-	timestamp = asctime(localtime(&ltime));
-	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMaxLimit] position limit : %d\n", timestamp, nPos);
-	fflush(Logfile);
-#endif
-
+	nPos = m_nMaxLinit;
 	return nErr;
 }
 
 int CCelestronFocus::getPosMinLimit(int &nPos)
+{
+	int nErr = CTL_OK;
+
+	if(m_nMinLinit <0)
+		nErr = getPosLimits();
+
+	if(nErr)
+		return nErr;
+
+	nPos = m_nMinLinit;
+	return nErr;
+}
+
+
+int CCelestronFocus::getPosLimits()
 {
 	int nErr = CTL_OK;
 	Buffer_t Cmd;
@@ -416,7 +404,6 @@ int CCelestronFocus::getPosMinLimit(int &nPos)
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
-	nPos = 0;
 	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
 
 	Cmd[0] = SOM;
@@ -438,14 +425,16 @@ int CCelestronFocus::getPosMinLimit(int &nPos)
 		return nErr;
 	}
 	if(Resp.size()) {
-		nPos = (Resp[0] << 24) + (Resp[1] << 16) + (Resp[2] << 8) + Resp[3];
+		m_nMinLinit = (Resp[0] << 24) + (Resp[1] << 16) + (Resp[2] << 8) + Resp[3];
+		m_nMaxLinit = (Resp[4] << 24) + (Resp[5] << 16) + (Resp[6] << 8) + Resp[7];
+
 	}
 
 #if defined CTL_DEBUG && CTL_DEBUG >= 2
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMinLimit] position limit : %d\n", timestamp, nPos);
+	fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosLimits] position limit (min/max) : %d / %d\n", timestamp, m_nMinLinit, m_nMaxLinit);
 	fflush(Logfile);
 #endif
 
