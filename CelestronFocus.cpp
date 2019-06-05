@@ -287,7 +287,7 @@ int CCelestronFocus::abort(void)
 	Cmd[MSG_LEN] = 6;
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
-	Cmd[CMD_ID] = MC_GOTO_FAST;
+	Cmd[CMD_ID] = MC_MOVE_POS;
 	Cmd[5] = 0;
 	Cmd[6] = 0;
 	Cmd[7] = 0;
