@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_06_6_1240.\n", timestamp);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_06_7_2055.\n", timestamp);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -451,11 +451,11 @@ int CCelestronFocus::SendCommand(const unsigned char *pszCmd, unsigned char *psz
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszCmd, cHexMessage, pszCmd[1]+3, LOG_BUFFER_SIZE);
+	hexdump(pszCmd, cHexMessage, int(pszCmd[1])+3, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] Sending %s\n", timestamp, cHexMessage);
 	fflush(Logfile);
 #endif
-	nErr = m_pSerx->writeFile((void *)pszCmd, pszCmd[1]+3, ulBytesWrite);
+	nErr = m_pSerx->writeFile((void *)pszCmd, (unsigned long)(pszCmd[1])+3, ulBytesWrite);
 	m_pSerx->flushTx();
 
 	if(nErr)
@@ -476,7 +476,7 @@ int CCelestronFocus::SendCommand(const unsigned char *pszCmd, unsigned char *psz
 				ltime = time(NULL);
 				timestamp = asctime(localtime(&ltime));
 				timestamp[strlen(timestamp) - 1] = 0;
-				hexdump(szResp, cHexMessage, szResp[1]+3, LOG_BUFFER_SIZE);
+				hexdump(szResp, cHexMessage, int(szResp[1])+3, LOG_BUFFER_SIZE);
 				fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] response \"%s\"\n", timestamp, cHexMessage);
 				fflush(Logfile);
 			}
@@ -487,13 +487,13 @@ int CCelestronFocus::SendCommand(const unsigned char *pszCmd, unsigned char *psz
 			timeout++;
 		}
 		memset(pszResult,0, nResultMaxLen);
-		memcpy(pszResult, szResp, szResp[1]+3);
+		memcpy(pszResult, szResp, int(szResp[1])+3);
 
 #if defined CTL_DEBUG && CTL_DEBUG >= 3
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		hexdump(pszResult, cHexMessage, pszResult[1]+3, LOG_BUFFER_SIZE);
+		hexdump(pszResult, cHexMessage, int(pszResult[1])+3, LOG_BUFFER_SIZE);
 		fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] response copied to pszResult : \"%s\"\n", timestamp, cHexMessage);
 		fflush(Logfile);
 #endif
@@ -516,11 +516,12 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool b
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(Cmd.data(), szHexMessage, Cmd[3]+1, LOG_BUFFER_SIZE);
+	hexdump(Cmd.data(), szHexMessage, (int)(Cmd[1])+3, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] Sending %s\n", timestamp, szHexMessage);
+    fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] packet size is %d\n", timestamp, (int)(Cmd[1])+3);
 	fflush(Logfile);
 #endif
-	nErr = m_pSerx->writeFile((void *)Cmd.data(), Cmd[1]+3, ulBytesWrite);
+	nErr = m_pSerx->writeFile((void *)Cmd.data(), (unsigned long)(Cmd[1])+3, ulBytesWrite);
 	m_pSerx->flushTx();
 
 	if(nErr) {
@@ -600,12 +601,12 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 	if (nErr != CTL_OK || ulBytesRead!=1)
 		return ERR_CMDFAILED;
 
-	nLen = pszRespBuffer[1];
+	nLen = int(pszRespBuffer[1]);
 #if defined CTL_DEBUG && CTL_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
+	hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
 	fflush(Logfile);
 #endif
@@ -616,7 +617,7 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
+	hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
 	fflush(Logfile);
 #endif
@@ -625,7 +626,7 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
+		hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] error\n", timestamp);
 		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] got %s\n", timestamp, cHexMessage);
 		fflush(Logfile);
@@ -676,12 +677,12 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	if (nErr != CTL_OK || ulBytesRead!=1)
 		return ERR_CMDFAILED;
 
-	nLen = pszRespBuffer[1];
+	nLen = int(pszRespBuffer[1]);
 #if defined CTL_DEBUG && CTL_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
+	hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
 	fflush(Logfile);
 #endif
@@ -692,7 +693,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
+	hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
 	fflush(Logfile);
 #endif
@@ -701,7 +702,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		hexdump(pszRespBuffer, cHexMessage, pszRespBuffer[1]+2, LOG_BUFFER_SIZE);
+		hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] error\n", timestamp);
 		fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] got %s\n", timestamp, cHexMessage);
 		fflush(Logfile);
@@ -721,7 +722,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 		fflush(Logfile);
 #endif
 	}
-	nLen = pszRespBuffer[1]+2;
+	nLen = int(pszRespBuffer[1])+2;
 	RespBuffer.assign(pszRespBuffer, pszRespBuffer+nLen);
 	return nErr;
 }
@@ -756,7 +757,7 @@ void CCelestronFocus::hexdump(const unsigned char* pszInputBuffer, unsigned char
 
 	memset(pszOutputBuffer, 0, nOutpuBufferSize);
 	for(nIdx=0; nIdx < nInputBufferSize && pszBuf < (pszOutputBuffer + nOutpuBufferSize -3); nIdx++){
-		snprintf((char *)pszBuf,4,"%02X ", pszInputBuffer[nIdx]);
+        snprintf((char *)pszBuf,4,"%02X ", pszInputBuffer[nIdx]);
 		pszBuf+=3;
 	}
 }
