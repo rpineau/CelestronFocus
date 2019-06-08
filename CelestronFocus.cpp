@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_06_5_1200.\n", timestamp);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_06_6_1240.\n", timestamp);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -86,15 +86,8 @@ int CCelestronFocus::Connect(const char *pszPort)
 	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] connected to %s\n", timestamp, pszPort);
 	fflush(Logfile);
 #endif
-	m_pSleeper->sleep(2000);
 
-#ifdef CTL_DEBUG
-	ltime = time(NULL);
-	timestamp = asctime(localtime(&ltime));
-	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] doing a goto 0\n", timestamp);
-	fflush(Logfile);
-#endif
+	m_pSleeper->sleep(2000);
 
 #ifdef CTL_DEBUG
 	ltime = time(NULL);
@@ -153,7 +146,7 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::getFirmwareVersion] Error getting AZM version : %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Error getting firmnware version : %d\n", timestamp, nErr);
 		fflush(Logfile);
 #endif
 		return nErr;
@@ -167,7 +160,6 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 	}
 	else
 		m_sFirmwareVersion = "Unknown";
-	// snprintf(AMZVersion, nStrMaxLen,"%d.%d", szResp[5] , szResp[6]);
 
 	return nErr;
 }
@@ -254,7 +246,7 @@ int CCelestronFocus::isMoving(bool &bMoving)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::isMoving] Error getting response : %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [CCelestronFocus::isMoving] Error getting response : %d\n", timestamp, nErr);
 		fflush(Logfile);
 #endif
 		return nErr;
@@ -355,7 +347,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosition] Error getting response : %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [CCelestronFocus::getPosition] Error getting response : %d\n", timestamp, nErr);
 		fflush(Logfile);
 #endif
 		return nErr;
@@ -419,7 +411,7 @@ int CCelestronFocus::getPosLimits()
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosMinLimit] Error getting response : %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [CCelestronFocus::getPosMinLimit] Error getting response : %d\n", timestamp, nErr);
 		fflush(Logfile);
 #endif
 		return nErr;
@@ -434,7 +426,7 @@ int CCelestronFocus::getPosLimits()
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [SkyPortalWiFi::getPosLimits] position limit (min/max) : %d / %d\n", timestamp, m_nMinLinit, m_nMaxLinit);
+	fprintf(Logfile, "[%s] [CCelestronFocus::getPosLimits] position limit (min/max) : %d / %d\n", timestamp, m_nMinLinit, m_nMaxLinit);
 	fflush(Logfile);
 #endif
 
@@ -531,9 +523,17 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool b
 	nErr = m_pSerx->writeFile((void *)Cmd.data(), Cmd[1]+3, ulBytesWrite);
 	m_pSerx->flushTx();
 
-	if(nErr)
+	if(nErr) {
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
+		ltime = time(NULL);
+		timestamp = asctime(localtime(&ltime));
+		timestamp[strlen(timestamp) - 1] = 0;
+		fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] m_pSerx->writeFile Error %d\n", timestamp, nErr);
+		fprintf(Logfile, "[%s] [CCelestronFocus::SendCommand] m_pSerx->writeFile ulBytesWrite : %lu\n", timestamp, ulBytesWrite);
+		fflush(Logfile);
+#endif
 		return nErr;
-
+	}
 	if(bExpectResponse) {
 		// Read responses until one is for us or we reach a timeout ?
 		do {
