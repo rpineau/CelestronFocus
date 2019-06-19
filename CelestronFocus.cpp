@@ -138,7 +138,22 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_GET_VER;    //get firmware version
-	Cmd[5] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+	Cmd[5] = checksum(Cmd);
+
+#if defined CTL_DEBUG && CTL_DEBUG >= 2
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[0] : %02X\n", timestamp, Cmd[0]);
+	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[MSG_LEN] : %02X\n", timestamp, Cmd[MSG_LEN]);
+	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[SRC_DEV] : %02X\n", timestamp, Cmd[SRC_DEV]);
+	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[DST_DEV] : %02X\n", timestamp, Cmd[DST_DEV]);
+	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[CMD_ID] : %02X\n", timestamp, Cmd[CMD_ID]);
+	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[5] : %02X\n", timestamp, Cmd[5]);
+
+	fflush(Logfile);
+#endif
+
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -191,7 +206,7 @@ int CCelestronFocus::gotoPosition(int nPos)
 	Cmd[5] = (uint8_t)((nPos & 0x00ff0000) >> 16);
 	Cmd[6] = (uint8_t)((nPos & 0x0000ff00) >> 8);
 	Cmd[7] = (uint8_t)( nPos & 0x000000ff);
-	Cmd[8] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+	Cmd[8] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, false);
     if(nErr)
@@ -238,7 +253,7 @@ int CCelestronFocus::isMoving(bool &bMoving)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_SLEW_DONE;
-	Cmd[5] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+	Cmd[5] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -286,7 +301,7 @@ int CCelestronFocus::abort(void)
 	Cmd[5] = 0;
 	Cmd[6] = 0;
 	Cmd[7] = 0;
-	Cmd[8] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+	Cmd[8] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, false);
 	if(nErr)
@@ -339,7 +354,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_GET_POSITION;
-	Cmd[5] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+	Cmd[5] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -403,7 +418,7 @@ int CCelestronFocus::getPosLimits()
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_FOC_GET_LIMITS;
-	Cmd[5] = checksum(Buffer_t(Cmd.begin()+1, Cmd.begin()+Cmd[MSG_LEN]+1), Cmd[MSG_LEN]+1);
+	Cmd[5] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -635,7 +650,7 @@ int CCelestronFocus::ReadResponse(unsigned char *pszRespBuffer, int nBufferLen)
 	}
 
 	// verify checksum
-	cChecksum = checksum(pszRespBuffer+1, nLen+1);
+	cChecksum = checksum(pszRespBuffer);
 	if (cChecksum != *(pszRespBuffer+nLen+2)) {
 		nErr = ERR_CMDFAILED;
 #if defined CTL_DEBUG && CTL_DEBUG >= 3
@@ -711,7 +726,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	}
 
 	// verify checksum
-	cChecksum = checksum(pszRespBuffer+1, nLen+1);
+	cChecksum = checksum(pszRespBuffer);
 	if (cChecksum != *(pszRespBuffer+nLen+2)) {
 		nErr = ERR_CMDFAILED;
 #if defined CTL_DEBUG && CTL_DEBUG >= 3
@@ -728,23 +743,37 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 }
 
 
-unsigned char CCelestronFocus::checksum(const unsigned char *cMessage, int nLen)
+unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 {
 	int nIdx;
 	char cChecksum = 0;
 
-	for (nIdx = 0; nIdx < nLen && nIdx < SERIAL_BUFFER_SIZE; nIdx++) {
+	for (nIdx = 1; nIdx < cMessage[1]+2; nIdx++) {
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
+		ltime = time(NULL);
+		timestamp = asctime(localtime(&ltime));
+		timestamp[strlen(timestamp) - 1] = 0;
+		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] cMessage[nIdx]: %02X\n", timestamp, cMessage[nIdx]);
+		fflush(Logfile);
+#endif
 		cChecksum -= cMessage[nIdx];
 	}
 	return (unsigned char)cChecksum;
 }
 
-uint8_t CCelestronFocus::checksum(const Buffer_t cMessage, int nLen)
+uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 {
 	int nIdx;
 	char cChecksum = 0;
 
-	for (nIdx = 0; nIdx < nLen && nIdx < SERIAL_BUFFER_SIZE; nIdx++) {
+	for (nIdx = 1; nIdx < cMessage[1]+2; nIdx++) {
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
+		ltime = time(NULL);
+		timestamp = asctime(localtime(&ltime));
+		timestamp[strlen(timestamp) - 1] = 0;
+		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] cMessage[nIdx]: %02X\n", timestamp, cMessage[nIdx]);
+		fflush(Logfile);
+#endif
 		cChecksum -= cMessage[nIdx];
 	}
 	return (uint8_t)cChecksum;

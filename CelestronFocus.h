@@ -122,8 +122,8 @@ protected:
 	int     ReadResponse(unsigned char *pszRespBuffer, int nBufferLen);
 	int     ReadResponse(Buffer_t RespBuffer, int &nlen);
 
-	unsigned char checksum(const unsigned char *cMessage, int nLen);
-	uint8_t checksum(const Buffer_t cMessage, int nLen);
+	unsigned char checksum(const unsigned char *cMessage);
+	uint8_t checksum(const Buffer_t cMessage);
 
 	void    hexdump(const unsigned char* pszInputBuffer, unsigned char *pszOutputBuffer, int nInputBufferSize, int nOutpuBufferSize);
 
