@@ -126,6 +126,7 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 	int nErr = CTL_OK;
 	Buffer_t Cmd;
 	Buffer_t Resp;
+    
 	std::stringstream  ssFirmwareVersion;
 
 	if(!m_bIsConnected)
@@ -139,21 +140,6 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_GET_VER;    //get firmware version
 	Cmd[5] = checksum(Cmd);
-
-#if defined CTL_DEBUG && CTL_DEBUG >= 2
-	ltime = time(NULL);
-	timestamp = asctime(localtime(&ltime));
-	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[0] : %02X\n", timestamp, Cmd[0]);
-	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[MSG_LEN] : %02X\n", timestamp, Cmd[MSG_LEN]);
-	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[SRC_DEV] : %02X\n", timestamp, Cmd[SRC_DEV]);
-	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[DST_DEV] : %02X\n", timestamp, Cmd[DST_DEV]);
-	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[CMD_ID] : %02X\n", timestamp, Cmd[CMD_ID]);
-	fprintf(Logfile, "[%s] [CCelestronFocus::getFirmwareVersion] Cmd[5] : %02X\n", timestamp, Cmd[5]);
-
-	fflush(Logfile);
-#endif
-
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -749,13 +735,6 @@ unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 	char cChecksum = 0;
 
 	for (nIdx = 1; nIdx < cMessage[1]+2; nIdx++) {
-#if defined CTL_DEBUG && CTL_DEBUG >= 3
-		ltime = time(NULL);
-		timestamp = asctime(localtime(&ltime));
-		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] cMessage[nIdx]: %02X\n", timestamp, cMessage[nIdx]);
-		fflush(Logfile);
-#endif
 		cChecksum -= cMessage[nIdx];
 	}
 	return (unsigned char)cChecksum;
@@ -767,13 +746,6 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 	char cChecksum = 0;
 
 	for (nIdx = 1; nIdx < cMessage[1]+2; nIdx++) {
-#if defined CTL_DEBUG && CTL_DEBUG >= 3
-		ltime = time(NULL);
-		timestamp = asctime(localtime(&ltime));
-		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] cMessage[nIdx]: %02X\n", timestamp, cMessage[nIdx]);
-		fflush(Logfile);
-#endif
 		cChecksum -= cMessage[nIdx];
 	}
 	return (uint8_t)cChecksum;
