@@ -116,10 +116,7 @@ public:
 
 protected:
 
-	int     SendCommand(const unsigned char *pszCmd, unsigned char *pszResult, int nResultMaxLen);
 	int     SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool bExpectResponse);
-
-	int     ReadResponse(unsigned char *pszRespBuffer, int nBufferLen);
 	int     ReadResponse(Buffer_t RespBuffer, int &nlen);
 
 	unsigned char checksum(const unsigned char *cMessage);
