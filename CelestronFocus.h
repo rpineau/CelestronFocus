@@ -116,8 +116,8 @@ public:
 
 protected:
 
-	int     SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool bExpectResponse);
-	int     ReadResponse(Buffer_t RespBuffer, int &nlen);
+	int     SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool bExpectResponse);
+	int     ReadResponse(Buffer_t &RespBuffer, int &nlen);
 
 	unsigned char checksum(const unsigned char *cMessage);
 	uint8_t checksum(const Buffer_t cMessage);
@@ -143,6 +143,7 @@ protected:
 	int			m_nMinLinit;
 	int			m_nMaxLinit;
 
+	void		test(Buffer_t &RespBuffer, int &nLen);
 
 
 #ifdef CTL_DEBUG

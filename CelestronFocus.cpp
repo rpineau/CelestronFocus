@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_3_2130.\n", timestamp);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_4_2000.\n", timestamp);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -61,6 +61,27 @@ int CCelestronFocus::Connect(const char *pszPort)
 
     if(!m_pSerx)
         return ERR_COMMNOLINK;
+
+#if defined CTL_DEBUG && CTL_DEBUG >= 4
+	///// debug response parsing //////
+	Buffer_t Resp;
+	int nLen;
+	unsigned char szHexMessage[LOG_BUFFER_SIZE];
+
+	test(Resp, nLen);
+
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Resp size =  %d\n", timestamp, int(Resp.size()));
+	fflush(Logfile);
+
+	hexdump(Resp.data(), szHexMessage, int(Resp.size()), LOG_BUFFER_SIZE);
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Resp data =  %s\n", timestamp, szHexMessage);
+	fflush(Logfile);
+	return ERR_COMMNOLINK;
+	////////////////////////////////////
+#endif
 
 #ifdef CTL_DEBUG
 	ltime = time(NULL);
@@ -328,6 +349,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 	int nErr = CTL_OK;
 	Buffer_t Cmd;
 	Buffer_t Resp;
+
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
@@ -351,7 +373,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 #endif
 		return nErr;
 	}
-	if(Resp.size()) {
+	if(Resp.size() >= 3) {
 		nPosition = (Resp[0] << 16) + (Resp[1] << 8) + Resp[2];
 	}
 
@@ -415,7 +437,7 @@ int CCelestronFocus::getPosLimits()
 #endif
 		return nErr;
 	}
-	if(Resp.size()) {
+	if(Resp.size() >= 8) {
 		m_nMinLinit = (Resp[0] << 24) + (Resp[1] << 16) + (Resp[2] << 8) + Resp[3];
 		m_nMaxLinit = (Resp[4] << 24) + (Resp[5] << 16) + (Resp[6] << 8) + Resp[7];
 
@@ -434,7 +456,7 @@ int CCelestronFocus::getPosLimits()
 
 #pragma mark Celestron command and response functions
 
-int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool bExpectResponse)
+int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool bExpectResponse)
 {
 	int nErr = CTL_OK;
 	unsigned long  ulBytesWrite;
@@ -506,7 +528,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t Resp, const bool b
 }
 
 
-int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
+int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, int &nLen)
 {
 	int nErr = CTL_OK;
 	unsigned long ulBytesRead = 0;
@@ -517,6 +539,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
+	RespBuffer.clear();
 	memset(pszRespBuffer, 0, (size_t) SERIAL_BUFFER_SIZE);
 
 	// Look for a SOM starting character, until timeout occurs
@@ -539,7 +562,6 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
 	fflush(Logfile);
 #endif
@@ -550,7 +572,7 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	hexdump(pszRespBuffer, cHexMessage, int(pszRespBuffer[1])+2, LOG_BUFFER_SIZE);
+	hexdump(pszRespBuffer, cHexMessage, nLen + 3, LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] ulBytesRead = %lu\n", timestamp, ulBytesRead);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] pszRespBuffer = %s\n", timestamp, cHexMessage);
 	fflush(Logfile);
@@ -580,24 +602,54 @@ int CCelestronFocus::ReadResponse(Buffer_t RespBuffer, int &nLen)
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] Calculated checksume is %02X, message checksum is %02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+1));
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] Calculated checksume is 0x%02X, message checksum is 0x%02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+2));
 	fflush(Logfile);
 #endif
-	if (cChecksum != uint8_t(*(pszRespBuffer+nLen+1))) {
+	if (cChecksum != uint8_t(*(pszRespBuffer+nLen+2))) {
 		nErr = ERR_CMDFAILED;
 	}
-	nLen = int(pszRespBuffer[1])+2;
-	RespBuffer.assign(pszRespBuffer, pszRespBuffer+nLen);
+	nLen = int(pszRespBuffer[1])-3; // SRC DST CMD [data]
+	RespBuffer.assign(pszRespBuffer+2+3, pszRespBuffer+2+3+nLen); // just the data without SOM, LEN , SRC, DEST, CMD_ID and checksum
 	return nErr;
 }
 
+void CCelestronFocus::test(Buffer_t &RespBuffer, int &nLen)
+{
+	unsigned char pszRespBuffer[] = {0x3B, 0x07, 0x12, 0x20, 0xFE, 0x07, 0x0F, 0x20, 0x30, 0x63};
+	unsigned char cHexMessage[LOG_BUFFER_SIZE];
+	uint8_t cChecksum;
+
+	RespBuffer.clear();
+	nLen = int(pszRespBuffer[1]);
+
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
+	hexdump(pszRespBuffer, cHexMessage, nLen + 3, LOG_BUFFER_SIZE);
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] pszRespBuffer = %s\n", timestamp, cHexMessage);
+	fflush(Logfile);
+	fflush(Logfile);
+
+	cChecksum = checksum(pszRespBuffer);
+
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] Calculated checksume is 0x%02X, message checksum is 0x%02X\n", timestamp, cChecksum, *(pszRespBuffer+nLen+2));
+	fflush(Logfile);
+	nLen = int(pszRespBuffer[1])-3; // SRC DST CMD [data]
+	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
+	fflush(Logfile);
+	RespBuffer.assign(pszRespBuffer+2+3, pszRespBuffer+2+3+nLen); // just the data without SOM, LEN , SRC, DEST, CMD_ID and checksum
+}
 
 unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 {
 	int nIdx;
 	char cChecksum = 0;
 
-#if defined CTL_DEBUG && CTL_DEBUG >= 4
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -605,7 +657,7 @@ unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 	fflush(Logfile);
 #endif
 
-#if defined CTL_DEBUG && CTL_DEBUG >= 4
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -615,16 +667,16 @@ unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 #endif
 
 	for (nIdx = 1; nIdx < int(cMessage[1])+2; nIdx++) {
-#if defined CTL_DEBUG && CTL_DEBUG >= 4
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] nIdx = %d  cMessage[nIdx] = '%02X'\n", timestamp, nIdx, int(cMessage[nIdx]));
+		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] nIdx = %d  cMessage[nIdx] = '0x%02X'\n", timestamp, nIdx, int(cMessage[nIdx]));
 		fflush(Logfile);
 #endif
-		cChecksum -= cMessage[nIdx];
+		cChecksum += cMessage[nIdx];
 	}
-	return (unsigned char)cChecksum;
+	return (unsigned char)(-cChecksum & 0xff);
 }
 
 uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
@@ -632,7 +684,7 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 	int nIdx;
 	char cChecksum = 0;
 
-#if defined CTL_DEBUG && CTL_DEBUG >= 4
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -640,7 +692,7 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 	fflush(Logfile);
 #endif
 
-#if defined CTL_DEBUG && CTL_DEBUG >= 4
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -650,16 +702,16 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 #endif
 
 	for (nIdx = 1; nIdx < int(cMessage[1])+2; nIdx++) {
-#if defined CTL_DEBUG && CTL_DEBUG >= 4
+#if defined CTL_DEBUG && CTL_DEBUG >= 3
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
-		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] nIdx = %d  cMessage[nIdx] = '%02X'\n", timestamp, nIdx, int(cMessage[nIdx]));
+		fprintf(Logfile, "[%s] [CCelestronFocus::checksum] nIdx = %d  cMessage[nIdx] = '0x%02X'\n", timestamp, nIdx, int(cMessage[nIdx]));
 		fflush(Logfile);
 #endif
-		cChecksum -= cMessage[nIdx];
+		cChecksum += cMessage[nIdx];
 	}
-	return (uint8_t)cChecksum;
+	return (uint8_t)(-cChecksum & 0xff);
 }
 
 void CCelestronFocus::hexdump(const unsigned char* pszInputBuffer, unsigned char *pszOutputBuffer, int nInputBufferSize, int nOutpuBufferSize)
