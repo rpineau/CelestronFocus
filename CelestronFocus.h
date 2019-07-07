@@ -38,7 +38,7 @@
 #include "../../licensedinterfaces/sleeperinterface.h"
 #include "../../licensedinterfaces/theskyxfacadefordriversinterface.h"
 
-#define CTL_DEBUG 3
+#define PLUGIN_DEBUG 5
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 1000
@@ -117,7 +117,7 @@ public:
 protected:
 
 	int     SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool bExpectResponse);
-	int     ReadResponse(Buffer_t &RespBuffer, int &nlen);
+	int     ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &nlen);
 
 	unsigned char checksum(const unsigned char *cMessage);
 	uint8_t checksum(const Buffer_t cMessage);
@@ -143,10 +143,10 @@ protected:
 	int			m_nMinLinit;
 	int			m_nMaxLinit;
 
-	void		test(Buffer_t &RespBuffer, int &nLen);
+	int			SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen);
 
 
-#ifdef CTL_DEBUG
+#ifdef PLUGIN_DEBUG
     std::string m_sLogfilePath;
     // timestamp for logs
     char *timestamp;
