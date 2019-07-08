@@ -113,6 +113,8 @@ public:
     int         getPosMaxLimit(int &nPos);
 	int         getPosMinLimit(int &nPos);
 
+	int			startCalibration(uint8_t nStart); // 0x0 to abort, 0x1 to start
+	int			isCalibrationDone(bool &bComplete);
 
 protected:
 

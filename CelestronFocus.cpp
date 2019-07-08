@@ -150,9 +150,9 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 	}
 	if(Resp.size()) {
 		if(Resp.size() == 4)
-			ssFirmwareVersion << std::dec << int(Resp[0]) << "." << int(Resp [1]) << "." << ((int(Resp[2]) << 8) + int(Resp[3]));
+			ssFirmwareVersion << std::dec << int(Resp[0]) << "." << int(Resp[1]) << "." << ((int(Resp[2]) << 8) + int(Resp[3]));
 		else
-		   ssFirmwareVersion << std::dec << int(Resp[0]) << "." << int(Resp [1]) ;
+		   ssFirmwareVersion << std::dec << int(Resp[0]) << "." << int(Resp[1]) ;
 		m_sFirmwareVersion = ssFirmwareVersion.str();
 	}
 	else
@@ -390,6 +390,7 @@ int CCelestronFocus::getPosLimits()
 	int nErr = CTL_OK;
 	Buffer_t Cmd;
 	Buffer_t Resp;
+
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
@@ -414,8 +415,8 @@ int CCelestronFocus::getPosLimits()
 		return nErr;
 	}
 	if(Resp.size() >= 8) {
-		m_nMinLinit = (Resp[0] << 24) + (Resp[1] << 16) + (Resp[2] << 8) + Resp[3];
-		m_nMaxLinit = (Resp[4] << 24) + (Resp[5] << 16) + (Resp[6] << 8) + Resp[7];
+		m_nMinLinit = (int(Resp[0]) << 24) + (int(Resp[1]) << 16) + (int(Resp[2]) << 8) + int(Resp[3]);
+		m_nMaxLinit = (int(Resp[4]) << 24) + (int(Resp[5]) << 16) + (int(Resp[6]) << 8) + int(Resp[7]);
 		if(m_nMaxLinit == 0)
 			m_nMaxLinit = 65535; // could be 0xFFFFFF too, instruction are not clear.
 	}
@@ -428,6 +429,75 @@ int CCelestronFocus::getPosLimits()
 	fflush(Logfile);
 #endif
 
+	return nErr;
+}
+
+
+int CCelestronFocus::startCalibration(uint8_t nStart)
+{
+	int nErr = CTL_OK;
+	Buffer_t Cmd;
+	Buffer_t Resp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
+
+	Cmd[0] = SOM;
+	Cmd[MSG_LEN] = 4;
+	Cmd[SRC_DEV] = PC;
+	Cmd[DST_DEV] = FOC;
+	Cmd[CMD_ID] = MC_FOC_CALIB;
+	Cmd[5] = nStart; // 0x0 to abort, 0x1 to start
+	Cmd[6] = checksum(Cmd);
+
+	nErr = SendCommand(Cmd, Resp, true);
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+	ltime = time(NULL);
+	timestamp = asctime(localtime(&ltime));
+	timestamp[strlen(timestamp) - 1] = 0;
+	fprintf(Logfile, "[%s] [CCelestronFocus::startCalibration] Error getting response : %d\n", timestamp, nErr);
+	fflush(Logfile);
+#endif
+
+	return nErr;
+}
+
+int CCelestronFocus::isCalibrationDone(bool &bComplete)
+{
+	int nErr = CTL_OK;
+	Buffer_t Cmd;
+	Buffer_t Resp;
+
+	if(!m_bIsConnected)
+		return ERR_COMMNOLINK;
+
+	bComplete = false;
+	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
+
+	Cmd[0] = SOM;
+	Cmd[MSG_LEN] = 3;
+	Cmd[SRC_DEV] = PC;
+	Cmd[DST_DEV] = FOC;
+	Cmd[CMD_ID] = MC_FOC_CALIB_DONE;
+	Cmd[5] = checksum(Cmd);
+	nErr = SendCommand(Cmd, Resp, true);
+	if(nErr) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+		ltime = time(NULL);
+		timestamp = asctime(localtime(&ltime));
+		timestamp[strlen(timestamp) - 1] = 0;
+		fprintf(Logfile, "[%s] [CCelestronFocus::isCalibrationDone] Error getting response : %d\n", timestamp, nErr);
+		fflush(Logfile);
+#endif
+		return nErr;
+	}
+
+	bComplete = (int(Resp[0]) > 0);
+	if(bComplete)
+		getPosLimits();
+	
 	return nErr;
 }
 
