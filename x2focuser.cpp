@@ -23,9 +23,7 @@ X2Focuser::X2Focuser(const char* pszDisplayName,
 
 	m_bLinked = false;
 	m_nPosition = 0;
-    m_fLastTemp = -273.15f; // aboslute zero :)
-	m_nLensIdx = 0;
-	m_nLensApertureIdx = 0;
+	m_bCalibrating = false;
 
 	m_CelestronFocus.SetSerxPointer(m_pSerX);
 	m_CelestronFocus.setSleeper(m_pSleeper);
@@ -185,6 +183,12 @@ int	X2Focuser::execModalSettingsDialog(void)
 
 	X2MutexLocker ml(GetMutex());
 
+	if(m_bLinked) {
+		dx->setEnabled("pushButton", true);
+	}
+	else {
+		dx->setEnabled("pushButton", false);
+	}
 	//Display the user interface
     if ((nErr = ui->exec(bPressedOK)))
         return nErr;
@@ -198,6 +202,40 @@ int	X2Focuser::execModalSettingsDialog(void)
 
 void X2Focuser::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 {
+	bool bComplete;
+
+	// pushButton
+	if (!strcmp(pszEvent, "on_timer")) {
+		if(m_bCalibrating) {
+			// check if we're done but not too often, 3 seconds should be fine
+			if(m_CalibratingTimer.GetElapsedSeconds()>3) {
+				m_CelestronFocus.isCalibrationDone(bComplete);
+				if(bComplete) {
+					m_bCalibrating = false;
+					uiex->setText("pushButton", "Calibrate focuser");
+					uiex->setEnabled("pushButtonCancel", true);
+					uiex->setEnabled("pushButtonOK", true);
+				}
+				m_CalibratingTimer.Reset();
+			}
+		}
+	}
+	else if	(!strcmp(pszEvent, "on_pushButton_clicked")) {
+		if(!m_bCalibrating) {
+			m_CelestronFocus.startCalibration(START_CALIBRATION);
+			m_bCalibrating = true;
+			uiex->setText("pushButton", "Abort Calibration");
+			uiex->setEnabled("pushButtonCancel", false);
+			uiex->setEnabled("pushButtonOK", false);
+			m_CalibratingTimer.Reset();
+		} else {
+			m_CelestronFocus.startCalibration(ABORT_CALIBRATION);
+			m_bCalibrating = false;
+			uiex->setText("pushButton", "Calibrate focuser");
+			uiex->setEnabled("pushButtonCancel", true);
+			uiex->setEnabled("pushButtonOK", true);
+		}
+	}
 }
 
 #pragma mark - FocuserGotoInterface2
@@ -291,7 +329,7 @@ int	X2Focuser::endFocGoto(void)
 
 int X2Focuser::amountCountFocGoto(void) const					
 { 
-	return 3;
+	return 4;
 }
 
 int	X2Focuser::amountNameFromIndexFocGoto(const int& nZeroBasedIndex, BasicStringInterface& strDisplayName, int& nAmount)
@@ -302,6 +340,7 @@ int	X2Focuser::amountNameFromIndexFocGoto(const int& nZeroBasedIndex, BasicStrin
 		case 0: strDisplayName="10 steps"; nAmount=10;break;
 		case 1: strDisplayName="100 steps"; nAmount=100;break;
 		case 2: strDisplayName="1000 steps"; nAmount=1000;break;
+		case 3: strDisplayName="5000 steps"; nAmount=5000;break;
 	}
 	return SB_OK;
 }

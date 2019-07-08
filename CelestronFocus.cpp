@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_7_1635.\n", timestamp);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_7_2000.\n", timestamp);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -682,7 +682,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 	timestamp[strlen(timestamp) - 1] = 0;
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nLen = %d\n", timestamp, nLen);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nTarget = 0x%02X\n", timestamp, nTarget);
-		(RespBuffer.data(), cHexMessage, int(RespBuffer.size()), LOG_BUFFER_SIZE);
+	hexdump(RespBuffer.data(), cHexMessage, int(RespBuffer.size()), LOG_BUFFER_SIZE);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] Resp data =  %s\n", timestamp, cHexMessage);
 	fprintf(Logfile, "[%s] [CCelestronFocus::readResponse] nErr =  %d\n", timestamp, nErr);
 	fflush(Logfile);

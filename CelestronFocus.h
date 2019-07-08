@@ -38,7 +38,7 @@
 #include "../../licensedinterfaces/sleeperinterface.h"
 #include "../../licensedinterfaces/theskyxfacadefordriversinterface.h"
 
-#define PLUGIN_DEBUG 5
+#define PLUGIN_DEBUG 3
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 1000
@@ -80,7 +80,7 @@ enum MC_Commands
 enum CTL_Errors    {CTL_OK = 0, NOT_CONNECTED, ND_CANT_CONNECT, CTL_BAD_CMD_RESPONSE, COMMAND_FAILED};
 enum MotorDir       {NORMAL = 0 , REVERSE};
 enum MotorStatus    {IDLE = 0, MOVING};
-
+enum CalibrationMode {ABORT_CALIBRATION=0, START_CALIBRATION};
 
 class CCelestronFocus
 {

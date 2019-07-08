@@ -174,14 +174,9 @@ private:
 
 	bool                                    m_bLinked;
 	int                                     m_nPosition;
-    double                                  m_fLastTemp;
+	bool									m_bCalibrating;
     CCelestronFocus                         m_CelestronFocus;
-    bool                                    mUiEnabled;
-	int										m_nLensIdx;
-	int										m_nLensApertureIdx;
-	char 									m_szLensName[256];
-	char									m_szLensAperture[256];
-    bool                                    m_bReturntoSavedPos;
+	CStopWatch								m_CalibratingTimer;
 };
 
 
