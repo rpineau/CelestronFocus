@@ -185,9 +185,9 @@ int CCelestronFocus::gotoPosition(int nPos)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_GOTO_FAST;
-	Cmd[5] = (uint8_t)((nPos & 0x00ff0000) >> 16);
-	Cmd[6] = (uint8_t)((nPos & 0x0000ff00) >> 8);
-	Cmd[7] = (uint8_t)( nPos & 0x000000ff);
+	Cmd[5] = static_cast<uint8_t>((nPos >> 16) & 0xFF);
+	Cmd[6] = static_cast<uint8_t>((nPos >> 8) & 0xFF);
+	Cmd[7] = static_cast<uint8_t>( nPos & 0xFF);
 	Cmd[8] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, false);
@@ -249,7 +249,7 @@ int CCelestronFocus::isMoving(bool &bMoving)
 		return nErr;
 	}
 	if(Resp.size()) {
-		bMoving = (Resp[0] == (uint8_t)0xFF)?false:true;
+		bMoving = (Resp[0] == 0xFF)?false:true;
 	}
 
 	return nErr;
