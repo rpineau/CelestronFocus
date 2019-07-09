@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_7_2000.\n", timestamp);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_8_1330.\n", timestamp);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -57,6 +57,8 @@ CCelestronFocus::~CCelestronFocus()
 int CCelestronFocus::Connect(const char *pszPort)
 {
     int nErr = CTL_OK;
+    bool bCalibrated;
+    
     if(!m_pSerx)
         return ERR_COMMNOLINK;
 
@@ -85,25 +87,54 @@ int CCelestronFocus::Connect(const char *pszPort)
 	fflush(Logfile);
 #endif
 
-	m_pSleeper->sleep(2000);
+	m_pSleeper->sleep(1000);
 
+	nErr = getFirmwareVersion(m_sFirmwareVersion);
+    if(nErr)
+        return nErr;
+
+#ifdef PLUGIN_DEBUG
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::Connect] firmware version : %s\n", timestamp, m_sFirmwareVersion.c_str());
+    fflush(Logfile);
+#endif
+
+    nErr = getPosLimits();
+    if(nErr)
+        return nErr;
+    
 #ifdef PLUGIN_DEBUG
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] getting firmware version\n", timestamp);
+	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] position limits (min/max) : %d / %d\n", timestamp, m_nMinLinit, m_nMaxLinit);
 	fflush(Logfile);
 #endif
 
-	// get version
-	nErr = getFirmwareVersion(m_sFirmwareVersion);
+    nErr = isCalibrationDone(bCalibrated);
+    if(nErr)
+        return nErr;
 
 #ifdef PLUGIN_DEBUG
-	ltime = time(NULL);
-	timestamp = asctime(localtime(&ltime));
-	timestamp[strlen(timestamp) - 1] = 0;
-	fprintf(Logfile, "[%s] [CCelestronFocus::Connect] firmware version : %s\n", timestamp, m_sFirmwareVersion.c_str());
-	fflush(Logfile);
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Focuser calibrated : %s\n", timestamp, bCalibrated?"Yes":"No");
+    fflush(Logfile);
+#endif
+
+    nErr = getPosition(m_nCurPos);
+    if(nErr)
+        return nErr;
+
+#ifdef PLUGIN_DEBUG
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Current position : %d\n", timestamp, m_nCurPos);
+    fflush(Logfile);
 #endif
 
 	return nErr;
@@ -179,6 +210,8 @@ int CCelestronFocus::gotoPosition(int nPos)
     fflush(Logfile);
 #endif
 
+    // nPos+=m_nMinLinit;
+    
 	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
 	Cmd[0] = SOM;
 	Cmd[MSG_LEN] = 6;
@@ -249,7 +282,7 @@ int CCelestronFocus::isMoving(bool &bMoving)
 		return nErr;
 	}
 	if(Resp.size()) {
-		bMoving = (Resp[0] == 0xFF)?false:true;
+		bMoving = (Resp[0] != (uint8_t)0xFF);
 	}
 
 	return nErr;
@@ -276,14 +309,12 @@ int CCelestronFocus::abort(void)
 
 	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
 	Cmd[0] = SOM;
-	Cmd[MSG_LEN] = 6;
+	Cmd[MSG_LEN] = 4;
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_MOVE_POS;
 	Cmd[5] = 0;
-	Cmd[6] = 0;
-	Cmd[7] = 0;
-	Cmd[8] = checksum(Cmd);
+	Cmd[6] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, false);
 	if(nErr)
@@ -307,15 +338,48 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 	if(nErr)
 		return nErr;
 
-	if(bMoving)
+    if(bMoving) {
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser is still moving\n", timestamp);
+        fflush(Logfile);
+#endif
 		return nErr;
-
+    }
 	// check position
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser has stopped\n", timestamp);
+    fflush(Logfile);
+#endif
+
     getPosition(m_nCurPos);
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser position : %d\n", timestamp, m_nCurPos);
+    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Target position : %d\n", timestamp, m_nTargetPos);
+    fflush(Logfile);
+#endif
+
     if(m_nCurPos == m_nTargetPos)
         bComplete = true;
     else
         bComplete = false;
+
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+    ltime = time(NULL);
+    timestamp = asctime(localtime(&ltime));
+    timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] bComplete : %s\n", timestamp, bComplete?"True":"False");
+    fflush(Logfile);
+#endif
+
     return nErr;
 }
 
@@ -511,7 +575,8 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 	int timeout = 0;
 	int nRespLen;
 	uint8_t nTarget;
-	if(!m_bIsConnected)
+
+    if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
 	m_pSerx->purgeTxRx();
@@ -538,12 +603,13 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 #endif
 		return nErr;
 	}
-	if(bExpectResponse) {
+
+    if(bExpectResponse) {
 		// Read responses until one is for us or we reach a timeout ?
 		do {
 			//we're waiting for the answer
 			if(timeout>50) {
-				return COMMAND_FAILED;
+				return ERR_CMDFAILED;
 			}
 			// read response
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 5

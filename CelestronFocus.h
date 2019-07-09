@@ -77,7 +77,7 @@ enum MC_Commands
 
 
 
-enum CTL_Errors    {CTL_OK = 0, NOT_CONNECTED, ND_CANT_CONNECT, CTL_BAD_CMD_RESPONSE, COMMAND_FAILED};
+enum CTL_Errors    {CTL_OK = 0, NOT_CONNECTED, ND_CANT_CONNECT, CTL_BAD_CMD_RESPONSE};
 enum MotorDir       {NORMAL = 0 , REVERSE};
 enum MotorStatus    {IDLE = 0, MOVING};
 enum CalibrationMode {ABORT_CALIBRATION=0, START_CALIBRATION};

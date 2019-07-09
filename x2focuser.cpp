@@ -171,7 +171,9 @@ int	X2Focuser::execModalSettingsDialog(void)
     X2GUIInterface*					ui = uiutil.X2UI();
     X2GUIExchangeInterface*			dx = NULL;//Comes after ui is loaded
     bool bPressedOK = false;
-
+    char tmpBuf[SERIAL_BUFFER_SIZE];
+    int nTmp;
+    
 	if (NULL == ui)
         return ERR_POINTER;
 
@@ -185,6 +187,13 @@ int	X2Focuser::execModalSettingsDialog(void)
 
 	if(m_bLinked) {
 		dx->setEnabled("pushButton", true);
+        // update the min/max display
+        m_CelestronFocus.getPosMinLimit(nTmp);
+        snprintf(tmpBuf,SERIAL_BUFFER_SIZE,"%d", nTmp);
+        dx->setPropertyString("minLimit","text", tmpBuf);
+        m_CelestronFocus.getPosMaxLimit(nTmp);
+        snprintf(tmpBuf,SERIAL_BUFFER_SIZE,"%d", nTmp);
+        dx->setPropertyString("maxLimit","text", tmpBuf);
 	}
 	else {
 		dx->setEnabled("pushButton", false);
@@ -203,6 +212,8 @@ int	X2Focuser::execModalSettingsDialog(void)
 void X2Focuser::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 {
 	bool bComplete;
+    char tmpBuf[SERIAL_BUFFER_SIZE];
+    int nTmp;
 
 	// pushButton
 	if (!strcmp(pszEvent, "on_timer")) {
@@ -217,6 +228,13 @@ void X2Focuser::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 					uiex->setEnabled("pushButtonOK", true);
 				}
 				m_CalibratingTimer.Reset();
+                // update the min/max display
+                m_CelestronFocus.getPosMinLimit(nTmp);
+                snprintf(tmpBuf,SERIAL_BUFFER_SIZE,"%d", nTmp);
+                uiex->setPropertyString("minLimit","text", tmpBuf);
+                m_CelestronFocus.getPosMaxLimit(nTmp);
+                snprintf(tmpBuf,SERIAL_BUFFER_SIZE,"%d", nTmp);
+                uiex->setPropertyString("maxLimit","text", tmpBuf);
 			}
 		}
 	}
