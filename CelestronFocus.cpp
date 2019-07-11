@@ -571,7 +571,9 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 {
 	int nErr = CTL_OK;
 	unsigned long  ulBytesWrite;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	unsigned char szHexMessage[LOG_BUFFER_SIZE];
+#endif
 	int timeout = 0;
 	int nRespLen;
 	uint8_t nTarget;
@@ -651,8 +653,10 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 {
 	int nErr = CTL_OK;
 	unsigned long ulBytesRead = 0;
-	unsigned char cHexMessage[LOG_BUFFER_SIZE];
-	uint8_t cChecksum;
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+    unsigned char cHexMessage[LOG_BUFFER_SIZE];
+#endif
+    uint8_t cChecksum;
 	uint8_t cRespChecksum;
 
 	unsigned char pszRespBuffer[SERIAL_BUFFER_SIZE];
@@ -756,6 +760,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 	return nErr;
 }
 
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 int CCelestronFocus::SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen)
 {
 	unsigned char pszRespBuffer[] = {0x3B, 0x07, 0x12, 0x20, 0xFE, 0x07, 0x0F, 0x20, 0x30, 0x63};
@@ -798,6 +803,7 @@ int CCelestronFocus::SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,in
 	RespBuffer.assign(pszRespBuffer+2+3, pszRespBuffer+2+3+nLen); // just the data without SOM, LEN , SRC, DEST, CMD_ID and checksum
 	return nErr;
 }
+#endif
 
 unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 {

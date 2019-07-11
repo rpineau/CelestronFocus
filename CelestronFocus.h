@@ -38,7 +38,7 @@
 #include "../../licensedinterfaces/sleeperinterface.h"
 #include "../../licensedinterfaces/theskyxfacadefordriversinterface.h"
 
-#define PLUGIN_DEBUG 3
+// #define PLUGIN_DEBUG 3
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 1000
@@ -145,8 +145,10 @@ protected:
 	int			m_nMinLinit;
 	int			m_nMaxLinit;
 
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	int			SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen);
-
+#endif
+    
 
 #ifdef PLUGIN_DEBUG
     std::string m_sLogfilePath;
