@@ -2,8 +2,9 @@
 
 PACKAGE_NAME="CelestronFocus_X2.pkg"
 BUNDLE_NAME="org.rti-zone.CelestronFocusX2"
+
 if [ ! -z "$app_id_signature" ]; then
-    codesign -s "$app_id_signature" ../build/Release/libCelestronFocus.dylib
+    codesign -f -s "$app_id_signature" --verbose ../build/Release/libCelestronFocus.dylib
 fi
 
 mkdir -p ROOT/tmp/CelestronFocus_X2/
