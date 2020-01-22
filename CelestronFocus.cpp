@@ -348,6 +348,12 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 #endif
 		return nErr;
     }
+    
+    // looks like checking the final position causes issue as the focuser doesn't always stop on the exact requested position.
+    // so let's assume it's done moving and at the target position
+    bComplete = true;
+    return nErr;
+/*
 	// check position
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     ltime = time(NULL);
@@ -381,6 +387,7 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 #endif
 
     return nErr;
+ */
 }
 
 #pragma mark getters and setters
