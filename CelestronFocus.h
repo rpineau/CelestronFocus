@@ -38,7 +38,9 @@
 #include "../../licensedinterfaces/sleeperinterface.h"
 #include "../../licensedinterfaces/theskyxfacadefordriversinterface.h"
 
-// #define PLUGIN_DEBUG 3
+#define DRIVER_VERSION      1.2
+
+// #define PLUGIN_DEBUG 2
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 1000
