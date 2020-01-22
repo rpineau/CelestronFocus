@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_01_21_1905 version %f.\n", timestamp, DRIVER_VERSION);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_01_21_1940 version %f.\n", timestamp, DRIVER_VERSION);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -319,6 +319,9 @@ int CCelestronFocus::abort(void)
 	nErr = SendCommand(Cmd, Resp, false);
 	if(nErr)
 		return nErr;
+    getPosition(m_nCurPos);
+    m_nTargetPos = m_nCurPos;
+
 	return nErr;
 }
 
@@ -421,6 +424,14 @@ int CCelestronFocus::getPosition(int &nPosition)
 	if(Resp.size() >= 3) {
 		nPosition = (int(Resp[0]) << 16) + (int(Resp[1]) << 8) + int(Resp[2]);
 	}
+
+    #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CCelestronFocus::getPosition] Position : %d\n", timestamp, nPosition);
+            fflush(Logfile);
+    #endif
 
 	return nErr;
 }
