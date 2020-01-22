@@ -40,7 +40,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Version 2019_07_8_1330.\n", timestamp);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_01_21_1905 version %f.\n", timestamp, DRIVER_VERSION);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -339,55 +339,53 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 		return nErr;
 
     if(bMoving) {
+        bComplete = false;
+    }
+    else {
+        bComplete = true;
+    }
+
+    // looks like checking the final position causes issue as the focuser doesn't always stop on the exact requested position.
+    // so let's assume it's done moving and at the target position
+
+/*
+    if(bComplete) {
+        // check position
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
         ltime = time(NULL);
         timestamp = asctime(localtime(&ltime));
         timestamp[strlen(timestamp) - 1] = 0;
-        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser is still moving\n", timestamp);
+        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser has stopped\n", timestamp);
         fflush(Logfile);
 #endif
-		return nErr;
+
+        getPosition(m_nCurPos);
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser position : %d\n", timestamp, m_nCurPos);
+        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Target position : %d\n", timestamp, m_nTargetPos);
+        fflush(Logfile);
+#endif
+
+        if(m_nCurPos == m_nTargetPos)
+            bComplete = true;
+        else
+            bComplete = false;
     }
-    
-    // looks like checking the final position causes issue as the focuser doesn't always stop on the exact requested position.
-    // so let's assume it's done moving and at the target position
-    bComplete = true;
-    return nErr;
-/*
-	// check position
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    ltime = time(NULL);
-    timestamp = asctime(localtime(&ltime));
-    timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser has stopped\n", timestamp);
-    fflush(Logfile);
-#endif
-
-    getPosition(m_nCurPos);
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-    ltime = time(NULL);
-    timestamp = asctime(localtime(&ltime));
-    timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser position : %d\n", timestamp, m_nCurPos);
-    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Target position : %d\n", timestamp, m_nTargetPos);
-    fflush(Logfile);
-#endif
-
-    if(m_nCurPos == m_nTargetPos)
-        bComplete = true;
-    else
-        bComplete = false;
+*/
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
+    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Focuser is %s moving\n", timestamp, bComplete?"done":"still");
     fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] bComplete : %s\n", timestamp, bComplete?"True":"False");
     fflush(Logfile);
 #endif
 
     return nErr;
- */
 }
 
 #pragma mark getters and setters

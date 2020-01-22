@@ -35,7 +35,6 @@ class MutexInterface;
 class BasicIniUtilInterface;
 class TickCountInterface;
 
-#define DRIVER_VERSION      1.1
 
 #define PARENT_KEY			"EFCTL"
 #define CHILD_KEY_PORTNAME	"PortName"
