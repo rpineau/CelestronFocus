@@ -323,7 +323,9 @@ int	X2Focuser::startFocGoto(const int& nRelativeOffset)
 int	X2Focuser::isCompleteFocGoto(bool& bComplete) const
 {
     int nErr;
-
+    
+    bComplete = false;
+    
     if(!m_bLinked)
         return NOT_CONNECTED;
 
