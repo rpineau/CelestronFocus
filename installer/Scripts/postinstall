@@ -31,8 +31,12 @@ echo "Installing in $PLUGINS_DIR/FocuserPlugIns/"
 
 cp "/tmp/CelestronFocus_X2/focuserlist CelestronFocus.txt" "$TheSkyX_Path/Resources/Common/Miscellaneous Files/"
 if [ "$?" -ne "0" ]; then exit 1; fi
+
+rm -f "$PLUGINS_DIR/FocuserPlugIns/CelestronFocus.ui"
 cp "/tmp/CelestronFocus_X2/CelestronFocus.ui" "$PLUGINS_DIR/FocuserPlugIns/"
 if [ "$?" -ne "0" ]; then exit 1; fi
+
+rm -f "$PLUGINS_DIR/FocuserPlugIns/libCelestronFocus.dylib"
 cp "/tmp/CelestronFocus_X2/libCelestronFocus.dylib" "$PLUGINS_DIR/FocuserPlugIns/"
 if [ "$?" -ne "0" ]; then exit 1; fi
 
