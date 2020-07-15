@@ -38,12 +38,8 @@ class TickCountInterface;
 
 #define PARENT_KEY			"EFCTL"
 #define CHILD_KEY_PORTNAME	"PortName"
-#define POS_LIMIT           "PosLimit"
-#define POS_LIMIT_ENABLED   "PosLimitEnable"
-#define LENS_NAME			"LensName"
-#define LENS_APERTURE		"LensAperture"
-#define LAST_POS			"LastLensPosition"
-#define RETURN_TO_POS       "ReturnToSavePos"
+#define BACKLASH_EN   "BackLashEnable"
+#define BACKLASH_VAL   "BackLashValue"
 
 #if defined(SB_WIN_BUILD)
 #define DEF_PORT_NAME					"COM1"
@@ -172,7 +168,7 @@ private:
     void                                    portNameOnToCharPtr(char* pszPort, const int& nMaxSize) const;
 
 	bool                                    m_bLinked;
-	int                                     m_nPosition;
+	unsigned int                            m_nPosition;
 	bool									m_bCalibrating;
     CCelestronFocus                         m_CelestronFocus;
 	CStopWatch								m_CalibratingTimer;

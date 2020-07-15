@@ -36,9 +36,8 @@
 #include "../../licensedinterfaces/serxinterface.h"
 #include "../../licensedinterfaces/loggerinterface.h"
 #include "../../licensedinterfaces/sleeperinterface.h"
-#include "../../licensedinterfaces/theskyxfacadefordriversinterface.h"
 
-#define DRIVER_VERSION      1.2
+#define DRIVER_VERSION      1.4
 
 // #define PLUGIN_DEBUG 3
 
@@ -52,6 +51,10 @@
 #define SRC_DEV 2
 #define DST_DEV 3
 #define CMD_ID  4
+#define DATA1   5
+#define DATA2   6
+#define DATA3   7
+#define DATA4   8
 
 typedef std::vector<uint8_t> Buffer_t;
 
@@ -97,13 +100,12 @@ public:
 
     void        SetSerxPointer(SerXInterface *p) { m_pSerx = p; };
 	void        setSleeper(SleeperInterface *pSleeper) { m_pSleeper = pSleeper; };
-	void        setTheSkyXForMount(TheSkyXFacadeForDriversInterface *pTheSkyXForMounts) { m_pTheSkyXForMounts = pTheSkyXForMounts; };
 
 	int			getFirmwareVersion(std::string &sVersion);
 
 	// move commands
-    int         gotoPosition(int nPos);
-    int         moveRelativeToPosision(int nSteps);
+    int         gotoPosition(unsigned int nPosn, uint8_t nGotoMode = MC_GOTO_FAST);
+    int         moveRelativeToPosision(unsigned int nSteps);
 	int			isMoving(bool &bMoving);
 	int			abort(void);
 
@@ -111,22 +113,28 @@ public:
     int         isGoToComplete(bool &bComplete);
 
     // getter and setter
-    int         getPosition(int &nPosition);
-    int         getPosMaxLimit(int &nPos);
-	int         getPosMinLimit(int &nPos);
+    int         getPosition(unsigned int &nPosition);
+    int         getPosMaxLimit(unsigned int &nPos);
+	int         getPosMinLimit(unsigned int &nPos);
 
 	int			startCalibration(uint8_t nStart); // 0x0 to abort, 0x1 to start
 	int			isCalibrationDone(bool &bComplete);
 
+    void        setBacklashEnable(bool bEnable);
+    void        getBacklashEnable(bool &bEnable);
+    
+    void        setBacklashValue(int nValue);
+    void        getBacklashValue(int &nValue);
+
 protected:
 
 	int     SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool bExpectResponse);
-	int     ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &nlen);
+	int     ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, unsigned int &nlen);
 
 	unsigned char checksum(const unsigned char *cMessage);
 	uint8_t checksum(const Buffer_t cMessage);
 
-	void    hexdump(const unsigned char* pszInputBuffer, unsigned char *pszOutputBuffer, int nInputBufferSize, int nOutpuBufferSize);
+	void    hexdump(const unsigned char* pszInputBuffer, unsigned char* pszOutputBuffer, unsigned int nInputBufferSize, unsigned int nOutpuBufferSize);
 
 	int		getPosLimits();
 	
@@ -136,17 +144,21 @@ protected:
 
     SerXInterface   *m_pSerx;
 	SleeperInterface    *m_pSleeper;
-	TheSkyXFacadeForDriversInterface	*m_pTheSkyXForMounts;
 	
     bool		m_bDebugLog;
     bool		m_bIsConnected;
 	std::string	m_sFirmwareVersion;
-
-    int			m_nCurPos;
-    int			m_nTargetPos;
-	int			m_nMinLinit;
-	int			m_nMaxLinit;
-
+    bool        m_bCalibrated;
+    bool        m_bBacklashEnabled;
+    bool        m_bBacklashMove;
+    
+    unsigned int			m_nCurPos;
+    unsigned int			m_nTargetPos;
+    unsigned int            m_nFinalTargetPosition;
+	unsigned int			m_nMinLinit;
+	unsigned int			m_nMaxLinit;
+    int                     m_nBalcklashSteps;
+    
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	int			SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen);
 #endif

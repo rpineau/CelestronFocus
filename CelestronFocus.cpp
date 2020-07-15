@@ -14,13 +14,18 @@ CCelestronFocus::CCelestronFocus()
     m_pSerx = NULL;
     m_bDebugLog = false;
     m_bIsConnected = false;
-
+    m_bCalibrated = false;
+    m_bBacklashEnabled = false;
+    m_bBacklashMove = true;
+    
     m_nCurPos = 0;
     m_nTargetPos = 0;
 
 	m_nMinLinit = -1;
 	m_nMaxLinit = -1;
 
+    m_nBalcklashSteps = 0;
+    
 #ifdef PLUGIN_DEBUG
 #if defined(SB_WIN_BUILD)
     m_sLogfilePath = getenv("HOMEDRIVE");
@@ -40,7 +45,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_01_21_1940 version %f.\n", timestamp, DRIVER_VERSION);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_07_14_1525 version %f.\n", timestamp, DRIVER_VERSION);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -57,7 +62,6 @@ CCelestronFocus::~CCelestronFocus()
 int CCelestronFocus::Connect(const char *pszPort)
 {
     int nErr = CTL_OK;
-    bool bCalibrated;
     
     if(!m_pSerx)
         return ERR_COMMNOLINK;
@@ -113,7 +117,7 @@ int CCelestronFocus::Connect(const char *pszPort)
 	fflush(Logfile);
 #endif
 
-    nErr = isCalibrationDone(bCalibrated);
+    nErr = isCalibrationDone(m_bCalibrated);
     if(nErr)
         return nErr;
 
@@ -121,7 +125,7 @@ int CCelestronFocus::Connect(const char *pszPort)
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Focuser calibrated : %s\n", timestamp, bCalibrated?"Yes":"No");
+    fprintf(Logfile, "[%s] [CCelestronFocus::Connect] Focuser calibrated : %s\n", timestamp, m_bCalibrated?"Yes":"No");
     fflush(Logfile);
 #endif
 
@@ -166,7 +170,7 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_GET_VER;    //get firmware version
-	Cmd[5] = checksum(Cmd);
+	Cmd[DATA1] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -193,12 +197,13 @@ int CCelestronFocus::getFirmwareVersion(std::string &sVersion)
 }
 
 #pragma mark move commands
-int CCelestronFocus::gotoPosition(int nPos)
+int CCelestronFocus::gotoPosition(unsigned int nPos, uint8_t nGotoMode)
 {
     int nErr;
 	Buffer_t Cmd;
 	Buffer_t Resp;
-	
+    int nDeltaPos;
+    
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
@@ -210,18 +215,35 @@ int CCelestronFocus::gotoPosition(int nPos)
     fflush(Logfile);
 #endif
 
-    // nPos+=m_nMinLinit;
+    if(!m_bCalibrated)
+        return ERR_CMDFAILED;
+    
+    if(nPos < m_nMinLinit || nPos>m_nMaxLinit)
+        return ERR_LIMITSEXCEEDED;
+    
+    
+    if(m_bBacklashEnabled && !m_bBacklashMove) {
+        nDeltaPos = nPos - m_nCurPos;
+        if (( m_nBalcklashSteps< 0 && nDeltaPos > 0) || (m_nBalcklashSteps > 0 && nDeltaPos < 0)) {
+            m_bBacklashMove = true;
+            m_nFinalTargetPosition = nPos;
+            nPos -= m_nBalcklashSteps;
+        }
+        else
+            m_bBacklashMove = false;
+    }
+    
     
 	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
 	Cmd[0] = SOM;
 	Cmd[MSG_LEN] = 6;
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
-	Cmd[CMD_ID] = MC_GOTO_FAST;
-	Cmd[5] = static_cast<uint8_t>((nPos >> 16) & 0xFF);
-	Cmd[6] = static_cast<uint8_t>((nPos >> 8) & 0xFF);
-	Cmd[7] = static_cast<uint8_t>( nPos & 0xFF);
-	Cmd[8] = checksum(Cmd);
+	Cmd[CMD_ID] = nGotoMode;         // MC_GOTO_SLOW or MC_GOTO_FAST ?
+	Cmd[DATA1] = static_cast<uint8_t>((nPos >> 16) & 0xFF);
+	Cmd[DATA2] = static_cast<uint8_t>((nPos >> 8) & 0xFF);
+	Cmd[DATA3] = static_cast<uint8_t>( nPos & 0xFF);
+	Cmd[DATA4] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, false);
     if(nErr)
@@ -230,12 +252,15 @@ int CCelestronFocus::gotoPosition(int nPos)
     return nErr;
 }
 
-int CCelestronFocus::moveRelativeToPosision(int nSteps)
+int CCelestronFocus::moveRelativeToPosision(unsigned int nSteps)
 {
     int nErr;
 
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
+
+    if(!m_bCalibrated)
+        return ERR_CMDFAILED;
 
 #ifdef PLUGIN_DEBUG
     ltime = time(NULL);
@@ -268,7 +293,7 @@ int CCelestronFocus::isMoving(bool &bMoving)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_SLEW_DONE;
-	Cmd[5] = checksum(Cmd);
+	Cmd[DATA1] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -313,8 +338,8 @@ int CCelestronFocus::abort(void)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_MOVE_POS;
-	Cmd[5] = 0;
-	Cmd[6] = checksum(Cmd);
+	Cmd[DATA1] = 0;
+	Cmd[DATA2] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, false);
 	if(nErr)
@@ -348,10 +373,28 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
         bComplete = true;
     }
 
+    if( bComplete && m_bBacklashMove) {
+        gotoPosition(m_nFinalTargetPosition);
+        m_bBacklashMove = false;
+        bComplete = false;
+        #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+            getPosition(m_nCurPos);
+            ltime = time(NULL);
+            timestamp = asctime(localtime(&ltime));
+            timestamp[strlen(timestamp) - 1] = 0;
+            fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] doing backlash comp move\n", timestamp);
+            fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] bComplete              : %s\n", timestamp, bComplete?"True":"False");
+            fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] m_nCurPos              : %d\n", timestamp, m_nCurPos);
+            fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] m_nFinalTargetPosition : %d\n", timestamp, m_nFinalTargetPosition);
+            fflush(Logfile);
+        #endif
+
+    }
+    
     // looks like checking the final position causes issue as the focuser doesn't always stop on the exact requested position.
     // so let's assume it's done moving and at the target position
 
-/*
+
     if(bComplete) {
         // check position
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -371,13 +414,21 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
         fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] Target position : %d\n", timestamp, m_nTargetPos);
         fflush(Logfile);
 #endif
-
         if(m_nCurPos == m_nTargetPos)
             bComplete = true;
-        else
+        else {
+            #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+                    ltime = time(NULL);
+                    timestamp = asctime(localtime(&ltime));
+                    timestamp[strlen(timestamp) - 1] = 0;
+                    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete]Not on target and not moving, trying a goto slow\n", timestamp);
+                    fflush(Logfile);
+            #endif
             bComplete = false;
+            gotoPosition(m_nTargetPos, MC_GOTO_SLOW);
+        }
     }
-*/
+
 
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
     ltime = time(NULL);
@@ -392,7 +443,7 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 }
 
 #pragma mark getters and setters
-int CCelestronFocus::getPosition(int &nPosition)
+int CCelestronFocus::getPosition(unsigned int &nPosition)
 {
 	int nErr = CTL_OK;
 	Buffer_t Cmd;
@@ -408,7 +459,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_GET_POSITION;
-	Cmd[5] = checksum(Cmd);
+	Cmd[DATA1] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -436,7 +487,7 @@ int CCelestronFocus::getPosition(int &nPosition)
 	return nErr;
 }
 
-int CCelestronFocus::getPosMaxLimit(int &nPos)
+int CCelestronFocus::getPosMaxLimit(unsigned int &nPos)
 {
 	int nErr = CTL_OK;
 
@@ -450,7 +501,7 @@ int CCelestronFocus::getPosMaxLimit(int &nPos)
 	return nErr;
 }
 
-int CCelestronFocus::getPosMinLimit(int &nPos)
+int CCelestronFocus::getPosMinLimit(unsigned int &nPos)
 {
 	int nErr = CTL_OK;
 
@@ -481,7 +532,7 @@ int CCelestronFocus::getPosLimits()
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_FOC_GET_LIMITS;
-	Cmd[5] = checksum(Cmd);
+	Cmd[DATA1] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
@@ -529,8 +580,8 @@ int CCelestronFocus::startCalibration(uint8_t nStart)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_FOC_CALIB;
-	Cmd[5] = nStart; // 0x0 to abort, 0x1 to start
-	Cmd[6] = checksum(Cmd);
+	Cmd[DATA1] = nStart; // 0x0 to abort, 0x1 to start
+	Cmd[DATA2] = checksum(Cmd);
 
 	nErr = SendCommand(Cmd, Resp, true);
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -561,7 +612,7 @@ int CCelestronFocus::isCalibrationDone(bool &bComplete)
 	Cmd[SRC_DEV] = PC;
 	Cmd[DST_DEV] = FOC;
 	Cmd[CMD_ID] = MC_FOC_CALIB_DONE;
-	Cmd[5] = checksum(Cmd);
+	Cmd[DATA1] = checksum(Cmd);
 	nErr = SendCommand(Cmd, Resp, true);
 	if(nErr) {
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -575,11 +626,35 @@ int CCelestronFocus::isCalibrationDone(bool &bComplete)
 	}
 
 	bComplete = (int(Resp[0]) > 0);
-	if(bComplete)
+    if(bComplete) {
 		getPosLimits();
+        m_bCalibrated = true;
+    }
 	
 	return nErr;
 }
+
+void CCelestronFocus::setBacklashEnable(bool bEnable)
+{
+    m_bBacklashEnabled = bEnable;
+}
+
+void CCelestronFocus::getBacklashEnable(bool &bEnable)
+{
+    bEnable = m_bBacklashEnabled;
+}
+
+void CCelestronFocus::setBacklashValue(int nValue)
+{
+    m_nBalcklashSteps = nValue;
+}
+
+void CCelestronFocus::getBacklashValue(int &nValue)
+{
+    nValue = m_nBalcklashSteps;
+
+}
+
 
 #pragma mark Celestron command and response functions
 
@@ -587,18 +662,18 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 {
 	int nErr = CTL_OK;
 	unsigned long  ulBytesWrite;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	unsigned char szHexMessage[LOG_BUFFER_SIZE];
 #endif
-	int timeout = 0;
-	int nRespLen;
+	unsigned int timeout = 0;
+	unsigned int nRespLen;
 	uint8_t nTarget;
 
     if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
 	m_pSerx->purgeTxRx();
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -611,7 +686,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 	m_pSerx->flushTx();
 
 	if(nErr) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -636,7 +711,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 			nErr = ReadResponse(Resp, nTarget, nRespLen);
 #endif
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 			if(Resp.size() && nTarget == PC) { // filter out command echo
 				ltime = time(NULL);
 				timestamp = asctime(localtime(&ltime));
@@ -652,7 +727,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 			timeout++;
 		} while(Resp.size() && nTarget != PC);
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -665,11 +740,11 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 }
 
 
-int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &nLen)
+int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, unsigned int &nLen)
 {
 	int nErr = CTL_OK;
 	unsigned long ulBytesRead = 0;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
     unsigned char cHexMessage[LOG_BUFFER_SIZE];
 #endif
     uint8_t cChecksum;
@@ -699,7 +774,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 		return ERR_CMDFAILED;
 
 	nLen = int(pszRespBuffer[1]);
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -709,7 +784,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 
 	// Read the rest of the message
 	nErr = m_pSerx->readFile(pszRespBuffer + 2, nLen + 1, ulBytesRead, MAX_TIMEOUT); // the +1 on nLen is to also read the checksum
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -720,7 +795,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 #endif
 
 	if(nErr || (ulBytesRead != (nLen+1))) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -730,7 +805,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 		return ERR_CMDFAILED;
 	}
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -741,7 +816,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 	cChecksum = checksum(pszRespBuffer);
 	cRespChecksum = uint8_t(*(pszRespBuffer+nLen+2));
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -749,7 +824,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 	fflush(Logfile);
 #endif
 	if (cChecksum != cRespChecksum) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -762,7 +837,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 	nTarget = pszRespBuffer[DST_DEV];
 
 	RespBuffer.assign(pszRespBuffer+2+3, pszRespBuffer+2+3+nLen); // just the data without SOM, LEN , SRC, DEST, CMD_ID and checksum
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -776,7 +851,7 @@ int CCelestronFocus::ReadResponse(Buffer_t &RespBuffer, uint8_t &nTarget, int &n
 	return nErr;
 }
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 int CCelestronFocus::SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen)
 {
 	unsigned char pszRespBuffer[] = {0x3B, 0x07, 0x12, 0x20, 0xFE, 0x07, 0x0F, 0x20, 0x30, 0x63};
@@ -826,7 +901,7 @@ unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 	int nIdx;
 	char cChecksum = 0;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -834,7 +909,7 @@ unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 	fflush(Logfile);
 #endif
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -844,7 +919,7 @@ unsigned char CCelestronFocus::checksum(const unsigned char *cMessage)
 #endif
 
 	for (nIdx = 1; nIdx < int(cMessage[1])+2; nIdx++) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -861,7 +936,7 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 	int nIdx;
 	char cChecksum = 0;
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -869,7 +944,7 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 	fflush(Logfile);
 #endif
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -879,7 +954,7 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 #endif
 
 	for (nIdx = 1; nIdx < int(cMessage[1])+2; nIdx++) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
 		ltime = time(NULL);
 		timestamp = asctime(localtime(&ltime));
 		timestamp[strlen(timestamp) - 1] = 0;
@@ -891,10 +966,10 @@ uint8_t CCelestronFocus::checksum(const Buffer_t cMessage)
 	return (uint8_t)(-cChecksum & 0xff);
 }
 
-void CCelestronFocus::hexdump(const unsigned char* pszInputBuffer, unsigned char *pszOutputBuffer, int nInputBufferSize, int nOutpuBufferSize)
+void CCelestronFocus::hexdump(const unsigned char* pszInputBuffer, unsigned char* pszOutputBuffer, unsigned int nInputBufferSize, unsigned int nOutpuBufferSize)
 {
 	unsigned char *pszBuf = pszOutputBuffer;
-	int nIdx=0;
+	unsigned int nIdx=0;
 
 	memset(pszOutputBuffer, 0, nOutpuBufferSize);
 	for(nIdx=0; nIdx < nInputBufferSize && pszBuf < (pszOutputBuffer + nOutpuBufferSize -3); nIdx++){
