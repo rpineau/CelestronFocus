@@ -25,6 +25,7 @@ CCelestronFocus::CCelestronFocus()
 	m_nMaxLinit = -1;
 
     m_nBalcklashSteps = 0;
+    m_nGotoTries = 0;
     
 #ifdef PLUGIN_DEBUG
 #if defined(SB_WIN_BUILD)
@@ -249,6 +250,8 @@ int CCelestronFocus::gotoPosition(unsigned int nPos, uint8_t nGotoMode)
     if(nErr)
         return nErr;
     m_nTargetPos = nPos;
+    if(nGotoMode == MC_GOTO_FAST)
+        m_nGotoTries = 0;
     return nErr;
 }
 
@@ -374,7 +377,7 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
     }
 
     if( bComplete && m_bBacklashMove) {
-        gotoPosition(m_nFinalTargetPosition);
+        gotoPosition(m_nFinalTargetPosition, MC_GOTO_SLOW);
         m_bBacklashMove = false;
         bComplete = false;
         #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -388,13 +391,8 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
             fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] m_nFinalTargetPosition : %d\n", timestamp, m_nFinalTargetPosition);
             fflush(Logfile);
         #endif
-
     }
     
-    // looks like checking the final position causes issue as the focuser doesn't always stop on the exact requested position.
-    // so let's assume it's done moving and at the target position
-
-
     if(bComplete) {
         // check position
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -424,8 +422,16 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
                     fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete]Not on target and not moving, trying a goto slow\n", timestamp);
                     fflush(Logfile);
             #endif
-            bComplete = false;
-            gotoPosition(m_nTargetPos, MC_GOTO_SLOW);
+            if(m_nGotoTries < MAX_GOTO_TRIES) {
+                bComplete = false;
+                m_nGotoTries += 1;
+                gotoPosition(m_nTargetPos, MC_GOTO_SLOW);
+            }
+            else {
+                m_nGotoTries = 0;
+                nErr = ERR_CMDFAILED;
+                bComplete = false;
+            }
         }
     }
 

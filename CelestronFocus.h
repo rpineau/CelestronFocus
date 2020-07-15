@@ -56,6 +56,8 @@
 #define DATA3   7
 #define DATA4   8
 
+#define MAX_GOTO_TRIES 3
+
 typedef std::vector<uint8_t> Buffer_t;
 
 enum Targets {
@@ -158,6 +160,7 @@ protected:
 	unsigned int			m_nMinLinit;
 	unsigned int			m_nMaxLinit;
     int                     m_nBalcklashSteps;
+    int                     m_nGotoTries;
     
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	int			SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen);
