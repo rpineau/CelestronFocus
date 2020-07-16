@@ -168,7 +168,7 @@ private:
     void                                    portNameOnToCharPtr(char* pszPort, const int& nMaxSize) const;
 
 	bool                                    m_bLinked;
-	unsigned int                            m_nPosition;
+    int                                     m_nPosition;
 	bool									m_bCalibrating;
     CCelestronFocus                         m_CelestronFocus;
 	CStopWatch								m_CalibratingTimer;

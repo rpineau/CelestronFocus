@@ -182,7 +182,7 @@ int	X2Focuser::execModalSettingsDialog(void)
     X2GUIExchangeInterface*			dx = NULL;//Comes after ui is loaded
     bool bPressedOK = false;
     char tmpBuf[SERIAL_BUFFER_SIZE];
-    unsigned int nTmp;
+    int nTmp;
     int nBacklash;
     bool bTmp;
     
@@ -241,7 +241,7 @@ void X2Focuser::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 {
 	bool bComplete;
     char tmpBuf[SERIAL_BUFFER_SIZE];
-    unsigned int nTmp;
+    int nTmp;
 
 	// pushButton
 	if (!strcmp(pszEvent, "on_timer")) {
@@ -288,7 +288,7 @@ void X2Focuser::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 int	X2Focuser::focPosition(int& nPosition)
 {
     int nErr;
-    unsigned int nPos;
+    int nPos;
     
     if(!m_bLinked)
         return NOT_CONNECTED;
@@ -304,7 +304,7 @@ int	X2Focuser::focPosition(int& nPosition)
 int	X2Focuser::focMinimumLimit(int& nMinLimit) 		
 {
 	int nErr = SB_OK;
-    unsigned int nMinLim;
+    int nMinLim;
     
 	if(!m_bLinked)
 		return NOT_CONNECTED;
@@ -318,7 +318,7 @@ int	X2Focuser::focMinimumLimit(int& nMinLimit)
 int	X2Focuser::focMaximumLimit(int& nMaxLimit)
 {
 	int nErr = SB_OK;
-    unsigned int nMaxLim;
+    int nMaxLim;
     
 	if(!m_bLinked)
 		return NOT_CONNECTED;

@@ -37,9 +37,11 @@
 #include "../../licensedinterfaces/loggerinterface.h"
 #include "../../licensedinterfaces/sleeperinterface.h"
 
-#define DRIVER_VERSION      1.4
+#include "StopWatch.h"
 
-// #define PLUGIN_DEBUG 3
+#define DRIVER_VERSION      1.42
+
+#define PLUGIN_DEBUG 3
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 1000
@@ -57,6 +59,7 @@
 #define DATA4   8
 
 #define MAX_GOTO_TRIES 3
+#define MIN_CMD_DELAY 0.250
 
 typedef std::vector<uint8_t> Buffer_t;
 
@@ -106,8 +109,8 @@ public:
 	int			getFirmwareVersion(std::string &sVersion);
 
 	// move commands
-    int         gotoPosition(unsigned int nPosn, uint8_t nGotoMode = MC_GOTO_FAST);
-    int         moveRelativeToPosision(unsigned int nSteps);
+    int         gotoPosition(int nPos, uint8_t nGotoMode = MC_GOTO_FAST);
+    int         moveRelativeToPosision(int nSteps);
 	int			isMoving(bool &bMoving);
 	int			abort(void);
 
@@ -115,9 +118,9 @@ public:
     int         isGoToComplete(bool &bComplete);
 
     // getter and setter
-    int         getPosition(unsigned int &nPosition);
-    int         getPosMaxLimit(unsigned int &nPos);
-	int         getPosMinLimit(unsigned int &nPos);
+    int         getPosition(int &nPosition);
+    int         getPosMaxLimit(int &nPos);
+	int         getPosMinLimit(int &nPos);
 
 	int			startCalibration(uint8_t nStart); // 0x0 to abort, 0x1 to start
 	int			isCalibrationDone(bool &bComplete);
@@ -154,14 +157,15 @@ protected:
     bool        m_bBacklashEnabled;
     bool        m_bBacklashMove;
     
-    unsigned int			m_nCurPos;
-    unsigned int			m_nTargetPos;
-    unsigned int            m_nFinalTargetPosition;
-	unsigned int			m_nMinLinit;
-	unsigned int			m_nMaxLinit;
-    int                     m_nBalcklashSteps;
-    int                     m_nGotoTries;
+    int			m_nCurPos;
+    int			m_nTargetPos;
+    int         m_nFinalTargetPosition;
+	int			m_nMinLinit;
+	int			m_nMaxLinit;
+    int         m_nBalcklashSteps;
+    int         m_nGotoTries;
     
+    CStopWatch              timer;
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	int			SimulateResponse(Buffer_t &RespBuffer, uint8_t &nTarget ,int &nLen);
 #endif
