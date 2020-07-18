@@ -39,9 +39,9 @@
 
 #include "StopWatch.h"
 
-#define DRIVER_VERSION      1.42
+#define DRIVER_VERSION      1.45
 
-#define PLUGIN_DEBUG 3
+// #define PLUGIN_DEBUG 3
 
 #define SERIAL_BUFFER_SIZE 256
 #define MAX_TIMEOUT 1000
@@ -125,12 +125,6 @@ public:
 	int			startCalibration(uint8_t nStart); // 0x0 to abort, 0x1 to start
 	int			isCalibrationDone(bool &bComplete);
 
-    void        setBacklashEnable(bool bEnable);
-    void        getBacklashEnable(bool &bEnable);
-    
-    void        setBacklashValue(int nValue);
-    void        getBacklashValue(int &nValue);
-
 protected:
 
 	int     SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool bExpectResponse);
@@ -154,16 +148,13 @@ protected:
     bool		m_bIsConnected;
 	std::string	m_sFirmwareVersion;
     bool        m_bCalibrated;
-    bool        m_bBacklashEnabled;
-    bool        m_bBacklashMove;
     
     int			m_nCurPos;
     int			m_nTargetPos;
-    int         m_nFinalTargetPosition;
 	int			m_nMinLinit;
 	int			m_nMaxLinit;
-    int         m_nBalcklashSteps;
     int         m_nGotoTries;
+    int         m_nGotoMode;
     
     CStopWatch              timer;
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3

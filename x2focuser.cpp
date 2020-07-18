@@ -30,13 +30,6 @@ X2Focuser::X2Focuser(const char* pszDisplayName,
     
     if (m_pIniUtil)
     {
-        bool bBaclkashEnabled;
-        bBaclkashEnabled =  bool(m_pIniUtil->readInt(PARENT_KEY, BACKLASH_EN, false));
-        m_CelestronFocus.setBacklashEnable(bBaclkashEnabled);
-        if(bBaclkashEnabled) {
-            m_CelestronFocus.setBacklashValue(m_pIniUtil->readInt(PARENT_KEY, BACKLASH_VAL, 0));
-        }
-        
     }
 
 }
@@ -183,8 +176,6 @@ int	X2Focuser::execModalSettingsDialog(void)
     bool bPressedOK = false;
     char tmpBuf[SERIAL_BUFFER_SIZE];
     int nTmp;
-    int nBacklash;
-    bool bTmp;
     
 	if (NULL == ui)
         return ERR_POINTER;
@@ -208,10 +199,6 @@ int	X2Focuser::execModalSettingsDialog(void)
         m_CelestronFocus.getPosMaxLimit(nTmp);
         snprintf(tmpBuf,SERIAL_BUFFER_SIZE,"%d", nTmp);
         dx->setPropertyString("maxLimit","text", tmpBuf);
-        m_CelestronFocus.getBacklashValue(nBacklash);
-        dx->setPropertyInt("spinbox", "value", nBacklash);
-        m_CelestronFocus.getBacklashEnable(bTmp);
-        dx->setChecked("checkBox", bTmp);
 	}
 	else {
 		dx->setEnabled("pushButton", false);
@@ -224,14 +211,6 @@ int	X2Focuser::execModalSettingsDialog(void)
 
     //Retreive values from the user interface
     if (bPressedOK) {
-        if(dx->isChecked("checkBox")) {
-            dx->propertyInt("spinBox", "value", nBacklash);
-            nErr = m_pIniUtil->writeInt(PARENT_KEY, BACKLASH_EN, true);
-            nErr |= m_pIniUtil->writeInt(PARENT_KEY, BACKLASH_VAL, nBacklash);
-
-        }
-        else
-            nErr = m_pIniUtil->writeInt(PARENT_KEY, BACKLASH_EN, false);
     }
 
     return nErr;
@@ -296,8 +275,13 @@ int	X2Focuser::focPosition(int& nPosition)
     X2MutexLocker ml(GetMutex());
 
     nErr = m_CelestronFocus.getPosition(nPos);
-    nPosition = int(nPos);
-    m_nPosition = nPosition;
+    if(nErr) {
+        nPosition = m_nPosition;
+    }
+    else {
+        nPosition = int(nPos);
+        m_nPosition = nPosition;
+    }
     return nErr;
 }
 

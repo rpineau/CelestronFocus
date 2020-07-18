@@ -15,17 +15,13 @@ CCelestronFocus::CCelestronFocus()
     m_bDebugLog = false;
     m_bIsConnected = false;
     m_bCalibrated = false;
-    m_bBacklashEnabled = false;
-    m_bBacklashMove = false;
     
     m_nCurPos = 0;
     m_nTargetPos = 0;
-    m_nFinalTargetPosition = 0;
     
 	m_nMinLinit = -1;
 	m_nMaxLinit = -1;
 
-    m_nBalcklashSteps = 0;
     m_nGotoTries = 0;
     
     timer.Reset();
@@ -49,7 +45,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_07_16_0932 version %f.\n", timestamp, DRIVER_VERSION);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_07_17_1220 version %f.\n", timestamp, DRIVER_VERSION);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
@@ -206,20 +202,18 @@ int CCelestronFocus::gotoPosition(int nPos, uint8_t nGotoMode)
     int nErr;
 	Buffer_t Cmd;
 	Buffer_t Resp;
-    int nDeltaPos;
     
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
+    m_nGotoMode = nGotoMode;
+    
 #ifdef PLUGIN_DEBUG
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
     fprintf(Logfile, "[%s] [CCelestronFocus::gotoPosition] goto position      : %d\n", timestamp, nPos);
     fprintf(Logfile, "[%s] [CCelestronFocus::gotoPosition] nGotoMode          : %s\n", timestamp, (nGotoMode == MC_GOTO_FAST)?"Fast":"Slow");
-    fprintf(Logfile, "[%s] [CCelestronFocus::gotoPosition] m_bBacklashEnabled : %s\n", timestamp, m_bBacklashEnabled?"Yes":"No");
-    fprintf(Logfile, "[%s] [CCelestronFocus::gotoPosition] m_bBacklashMove    : %s\n", timestamp, m_bBacklashMove?"Yes":"No");
-    fprintf(Logfile, "[%s] [CCelestronFocus::gotoPosition] m_nBalcklashSteps  : %d\n", timestamp, m_nBalcklashSteps);
     fflush(Logfile);
 #endif
 
@@ -229,18 +223,6 @@ int CCelestronFocus::gotoPosition(int nPos, uint8_t nGotoMode)
     if(nPos < m_nMinLinit || nPos>m_nMaxLinit)
         return ERR_LIMITSEXCEEDED;
         
-    if(m_bBacklashEnabled && !m_bBacklashMove) {
-        nDeltaPos = nPos - m_nCurPos;
-        if (( m_nBalcklashSteps< 0 && nDeltaPos > 0) || (m_nBalcklashSteps > 0 && nDeltaPos < 0)) {
-            m_bBacklashMove = true;
-            m_nFinalTargetPosition = nPos;
-            nPos -= m_nBalcklashSteps;
-        }
-        else
-            m_bBacklashMove = false;
-    } else
-        m_nFinalTargetPosition = nPos;
-    
     
 	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
 	Cmd[0] = SOM;
@@ -372,6 +354,14 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
+    #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete]\n", timestamp);
+        fflush(Logfile);
+    #endif
+
     bComplete = false;
 
     if(timer.GetElapsedSeconds() < MIN_CMD_DELAY) {
@@ -394,29 +384,14 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] doing backlash comp move\n", timestamp);
     fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] bComplete              : %s\n", timestamp, bComplete?"True":"False");
+    fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] nGotoMode              : %s\n", timestamp, (m_nGotoMode == MC_GOTO_FAST)?"Fast":"Slow");
     fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] bMoving                : %s\n", timestamp, bMoving?"Yes":"No");
     fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] m_nCurPos              : %d\n", timestamp, m_nCurPos);
     fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] m_nTargetPos           : %d\n", timestamp, m_nTargetPos);
     fflush(Logfile);
 #endif
 
-    if( bComplete && m_bBacklashMove) {
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-        ltime = time(NULL);
-        timestamp = asctime(localtime(&ltime));
-        timestamp[strlen(timestamp) - 1] = 0;
-        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] doing backlash comp move\n", timestamp);
-        fprintf(Logfile, "[%s] [CCelestronFocus::isGoToComplete] m_nFinalTargetPosition : %d\n", timestamp, m_nFinalTargetPosition);
-        fflush(Logfile);
-#endif
-
-        gotoPosition(m_nFinalTargetPosition, MC_GOTO_SLOW);
-        m_bBacklashMove = false;
-        bComplete = false;
-    }
-    
     if(bComplete) {
         // check position
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
@@ -474,6 +449,14 @@ int CCelestronFocus::getPosition(int &nPosition)
 	if(!m_bIsConnected)
 		return ERR_COMMNOLINK;
 
+    #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+        ltime = time(NULL);
+        timestamp = asctime(localtime(&ltime));
+        timestamp[strlen(timestamp) - 1] = 0;
+        fprintf(Logfile, "[%s] [CCelestronFocus::getPosition]\n", timestamp);
+        fflush(Logfile);
+    #endif
+
 	Cmd.assign (SERIAL_BUFFER_SIZE, 0);
 
 	Cmd[0] = SOM;
@@ -496,15 +479,17 @@ int CCelestronFocus::getPosition(int &nPosition)
 	}
 	if(Resp.size() >= 3) {
 		nPosition = (int(Resp[0]) << 16) + (int(Resp[1]) << 8) + int(Resp[2]);
+        #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
+                ltime = time(NULL);
+                timestamp = asctime(localtime(&ltime));
+                timestamp[strlen(timestamp) - 1] = 0;
+                fprintf(Logfile, "[%s] [CCelestronFocus::getPosition] Position : %d\n", timestamp, nPosition);
+                fflush(Logfile);
+        #endif
 	}
 
-    #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
-            ltime = time(NULL);
-            timestamp = asctime(localtime(&ltime));
-            timestamp[strlen(timestamp) - 1] = 0;
-            fprintf(Logfile, "[%s] [CCelestronFocus::getPosition] Position : %d\n", timestamp, nPosition);
-            fflush(Logfile);
-    #endif
+    if(nPosition < m_nMinLinit || nPosition> m_nMaxLinit)
+        nPosition = m_nCurPos;
 
 	return nErr;
 }
@@ -656,35 +641,13 @@ int CCelestronFocus::isCalibrationDone(bool &bComplete)
 	return nErr;
 }
 
-void CCelestronFocus::setBacklashEnable(bool bEnable)
-{
-    m_bBacklashEnabled = bEnable;
-}
-
-void CCelestronFocus::getBacklashEnable(bool &bEnable)
-{
-    bEnable = m_bBacklashEnabled;
-}
-
-void CCelestronFocus::setBacklashValue(int nValue)
-{
-    m_nBalcklashSteps = nValue;
-}
-
-void CCelestronFocus::getBacklashValue(int &nValue)
-{
-    nValue = m_nBalcklashSteps;
-
-}
-
-
 #pragma mark Celestron command and response functions
 
 int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool bExpectResponse)
 {
 	int nErr = CTL_OK;
 	unsigned long  ulBytesWrite;
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	unsigned char szHexMessage[LOG_BUFFER_SIZE];
 #endif
 	unsigned int timeout = 0;
@@ -695,7 +658,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 		return ERR_COMMNOLINK;
 
 	m_pSerx->purgeTxRx();
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 	ltime = time(NULL);
 	timestamp = asctime(localtime(&ltime));
 	timestamp[strlen(timestamp) - 1] = 0;
@@ -733,7 +696,7 @@ int CCelestronFocus::SendCommand(const Buffer_t Cmd, Buffer_t &Resp, const bool 
 			nErr = ReadResponse(Resp, nTarget, nRespLen);
 #endif
 
-#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 4
+#if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 3
 			if(Resp.size() && nTarget == PC) { // filter out command echo
 				ltime = time(NULL);
 				timestamp = asctime(localtime(&ltime));
