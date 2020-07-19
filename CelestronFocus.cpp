@@ -394,7 +394,6 @@ int CCelestronFocus::isGoToComplete(bool &bComplete)
 
     if(bComplete) {
         // check position
-
 #if defined PLUGIN_DEBUG && PLUGIN_DEBUG >= 2
         ltime = time(NULL);
         timestamp = asctime(localtime(&ltime));

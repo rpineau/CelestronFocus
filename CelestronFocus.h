@@ -41,8 +41,6 @@
 
 #define DRIVER_VERSION      1.46
 
-#define DRIVER_VERSION      1.2
-
 // #define PLUGIN_DEBUG 3
 
 #define SERIAL_BUFFER_SIZE 256
