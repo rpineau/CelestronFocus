@@ -93,7 +93,7 @@
         </rect>
        </property>
        <property name="text">
-        <string>Current minimum limit : </string>
+        <string>Current minimum limit :</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
@@ -109,7 +109,7 @@
         </rect>
        </property>
        <property name="text">
-        <string>Current maximum limit : </string>
+        <string>Current maximum limit :</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>

@@ -27,7 +27,10 @@ X2Focuser::X2Focuser(const char* pszDisplayName,
 
 	m_CelestronFocus.SetSerxPointer(m_pSerX);
 	m_CelestronFocus.setSleeper(m_pSleeper);
-	m_CelestronFocus.setTheSkyXForMount(m_pTheSkyXForMounts);
+    
+    if (m_pIniUtil)
+    {
+    }
 
 }
 
@@ -187,6 +190,8 @@ int	X2Focuser::execModalSettingsDialog(void)
 
 	if(m_bLinked) {
 		dx->setEnabled("pushButton", true);
+        dx->setEnabled("spinBox", true);
+        dx->setEnabled("checkBox", true);
         // update the min/max display
         m_CelestronFocus.getPosMinLimit(nTmp);
         snprintf(tmpBuf,SERIAL_BUFFER_SIZE,"%d", nTmp);
@@ -197,6 +202,8 @@ int	X2Focuser::execModalSettingsDialog(void)
 	}
 	else {
 		dx->setEnabled("pushButton", false);
+        dx->setEnabled("spinBox", false);
+        dx->setEnabled("checkBox", false);
 	}
 	//Display the user interface
     if ((nErr = ui->exec(bPressedOK)))
@@ -260,40 +267,50 @@ void X2Focuser::uiEvent(X2GUIExchangeInterface* uiex, const char* pszEvent)
 int	X2Focuser::focPosition(int& nPosition)
 {
     int nErr;
-
+    int nPos;
+    
     if(!m_bLinked)
         return NOT_CONNECTED;
 
     X2MutexLocker ml(GetMutex());
 
-    nErr = m_CelestronFocus.getPosition(nPosition);
-    m_nPosition = nPosition;
+    nErr = m_CelestronFocus.getPosition(nPos);
+    if(nErr) {
+        nPosition = m_nPosition;
+    }
+    else {
+        nPosition = int(nPos);
+        m_nPosition = nPosition;
+    }
     return nErr;
 }
 
 int	X2Focuser::focMinimumLimit(int& nMinLimit) 		
 {
 	int nErr = SB_OK;
-
+    int nMinLim;
+    
 	if(!m_bLinked)
 		return NOT_CONNECTED;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_CelestronFocus.getPosMinLimit(nMinLimit);
-
+	nErr = m_CelestronFocus.getPosMinLimit(nMinLim);
+    nMinLimit = int(nMinLim);
 	return nErr;
 }
 
 int	X2Focuser::focMaximumLimit(int& nMaxLimit)
 {
 	int nErr = SB_OK;
-
+    int nMaxLim;
+    
 	if(!m_bLinked)
 		return NOT_CONNECTED;
 
 	X2MutexLocker ml(GetMutex());
-	nErr = m_CelestronFocus.getPosMaxLimit(nMaxLimit);
-
+	nErr = m_CelestronFocus.getPosMaxLimit(nMaxLim);
+    nMaxLimit = int(nMaxLim);
+    
 	return nErr;
 }
 
