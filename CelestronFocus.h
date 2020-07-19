@@ -39,7 +39,7 @@
 
 #include "StopWatch.h"
 
-#define DRIVER_VERSION      1.45
+#define DRIVER_VERSION      1.46
 
 // #define PLUGIN_DEBUG 3
 

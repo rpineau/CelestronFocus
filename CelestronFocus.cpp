@@ -45,7 +45,7 @@ CCelestronFocus::CCelestronFocus()
     ltime = time(NULL);
     timestamp = asctime(localtime(&ltime));
     timestamp[strlen(timestamp) - 1] = 0;
-    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_07_17_1220 version %f.\n", timestamp, DRIVER_VERSION);
+    fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] build 2020_07_18_1350 version %f.\n", timestamp, DRIVER_VERSION);
     fprintf(Logfile, "[%s] [CCelestronFocus::CCelestronFocus] Constructor Called.\n", timestamp);
     fflush(Logfile);
 #endif
