@@ -27,7 +27,7 @@
 #include <sstream>
 #include <iostream>
 #include <fstream>
-
+#include <cstdint>
 #include <exception>
 #include <typeinfo>
 #include <stdexcept>
